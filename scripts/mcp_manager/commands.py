@@ -5,7 +5,7 @@ import signal
 import sys
 import time
 
-# 使用相对导入
+# Use relative imports
 from .config import SERVERS_DIR, load_config
 from .process_utils import (RUNNING_PROCESSES, clone_repo, is_port_in_use,
                             run_command, stop_process, stream_output)
@@ -14,313 +14,313 @@ from .process_utils import (RUNNING_PROCESSES, clone_repo, is_port_in_use,
 
 
 def setup_server(server_config: dict):
-    """安装指定服务器的依赖"""
-    name = server_config.get("name", "未知服务器")
-    print(f"\n--- 正在设置服务器: {name} ---")
+    """Install dependencies for the specified server"""
+    name = server_config.get("name", "Unknown Server")
+    print(f"\n--- Setting up server: {name} ---")
     if not server_config.get("enabled", True):
-        print(f"服务器 '{name}' 已禁用。跳过设置。")
+        print(f"Server '{name}' is disabled. Skipping setup.")
         return
 
     server_type = server_config.get("type")
     server_path = server_config.get("path")  # load_config 应该已经修正了这个路径
 
-    # 1. 克隆/更新仓库 (仅 source_code 类型)
+    # 1. Clone/update repository (only for source_code type)
     if server_type == "source_code":
         repo_url = server_config.get("repo")
         if repo_url:
-            # 路径应该由 load_config 确定，这里假设它在 server_config['path'] 的父目录
-            # 或者更健壮的方式是从 repo url 推断
+            # Path should be determined by load_config, here we assume it's in the parent directory of server_config['path']
+            # Or a more robust way is to infer from the repo url
             repo_name = repo_url.split("/")[-1].replace(".git", "")
             clone_target_dir = os.path.join(SERVERS_DIR, repo_name)
             if not clone_repo(repo_url, clone_target_dir, server_name=name):
-                print(f"[{name}] 仓库操作失败。停止设置。")
-                return  # 克隆/更新失败则停止
+                print(f"[{name}] Repository operation failed. Stopping setup.")
+                return  # Stop if clone/update fails
         else:
             print(
-                f"[{name}] 警告: source_code 类型服务器缺少 'repo' 配置，无法自动克隆/更新。"
+                f"[{name}] Warning: source_code type server missing 'repo' configuration, cannot automatically clone/update."
             )
 
-        # 检查最终路径是否存在 (克隆/更新后或手动指定时)
+        # Check if the final path exists (after clone/update or when manually specified)
         if not server_path or not os.path.isdir(server_path):
             print(
-                f"错误: 服务器路径 '{server_path}' 未找到或无效 '{name}'。请检查配置或仓库克隆步骤。"
+                f"Error: Server path '{server_path}' not found or invalid for '{name}'. Please check configuration or repository cloning step."
             )
             return
 
-    # 2. 运行安装命令
+    # 2. Run installation commands
     install_commands = server_config.get("install_commands", [])
     if not install_commands:
-        print(f"[{name}] 未指定安装命令。跳过安装步骤。")
+        print(f"[{name}] No installation commands specified. Skipping installation step.")
     else:
-        print(f"[{name}] 执行安装命令...")
-        # 确定执行命令的工作目录
-        # 对于 source_code，使用其 path；对于其他类型，可能不需要特定 cwd
+        print(f"[{name}] Executing installation commands...")
+        # Determine the working directory for executing commands
+        # For source_code, use its path; for other types, may not need specific cwd
         cwd = server_path if server_type == "source_code" else None
 
         for command in install_commands:
-            process = run_command(command, cwd=cwd, server_name=f"{name}-安装")
+            process = run_command(command, cwd=cwd, server_name=f"{name}-install")
             if process:
-                # 同步等待安装命令完成，并打印输出
+                # Synchronously wait for installation command to complete and print output
                 stdout_lines = []
                 stderr_lines = []
                 import subprocess
 
                 try:
-                    # 使用 communicate() 获取所有输出并等待进程结束
-                    stdout, stderr = process.communicate(timeout=300)  # 5分钟超时
+                    # Use communicate() to get all output and wait for the process to end
+                    stdout, stderr = process.communicate(timeout=300)  # 5 minutes timeout
                     stdout_lines = stdout.strip().splitlines()
                     stderr_lines = stderr.strip().splitlines()
 
                     if stdout_lines:
-                        print(f"[{name}-安装-out] {' '.join(stdout_lines)}")
+                        print(f"[{name}-install-out] {' '.join(stdout_lines)}")
                     if process.returncode != 0:
                         print(
-                            f"错误: 为 '{name}' 执行安装命令时出错。命令失败: {command}"
+                            f"Error: Error executing installation command for '{name}'. Command failed: {command}"
                         )
                         if stderr_lines:
-                            print(f"[{name}-安装-err] {' '.join(stderr_lines)}")
-                        return  # 安装失败则停止
+                            print(f"[{name}-install-err] {' '.join(stderr_lines)}")
+                        return  # Stop if installation fails
                     else:
-                        print(f"[{name}] 命令 '{command}' 成功完成。")
+                        print(f"[{name}] Command '{command}' completed successfully.")
 
                 except subprocess.TimeoutExpired:
-                    print(f"错误: 为 '{name}' 执行安装命令 '{command}' 超时。")
-                    stop_process(f"{name}-安装", process)  # 尝试停止超时的进程
+                    print(f"Error: Timeout executing installation command '{command}' for '{name}'.")
+                    stop_process(f"{name}-install", process)  # Try to stop the timed-out process
                     return
                 except Exception as e:
-                    print(f"错误: 等待安装命令 '{command}' 完成时发生意外错误: {e}")
-                    # 尝试读取剩余输出（如果可能）
+                    print(f"Error: Unexpected error occurred while waiting for installation command '{command}' to complete: {e}")
+                    # Try to read remaining output (if possible)
                     try:
                         stdout, stderr = process.communicate()
                     except:
                         pass
-                    if process.poll() is None:  # 如果还在运行，尝试停止
-                        stop_process(f"{name}-安装", process)
+                    if process.poll() is None:  # If still running, try to stop
+                        stop_process(f"{name}-install", process)
                     return
             else:
-                print(f"错误: 无法为 '{name}' 启动安装命令 '{command}'。")
-                return  # 无法执行命令则停止
+                print(f"Error: Unable to start installation command '{command}' for '{name}'.")
+                return  # Stop if unable to execute command
 
-    print(f"--- 服务器设置完成: {name} ---")
+    print(f"--- Server setup completed: {name} ---")
 
 
 def start_server(server_config: dict, watch: bool = False):
-    """启动指定服务器"""
-    name = server_config.get("name", "未知服务器")
+    """Start the specified server"""
+    name = server_config.get("name", "Unknown Server")
     if not server_config.get("enabled", True):
-        print(f"服务器 '{name}' 已禁用。跳过启动。")
+        print(f"Server '{name}' is disabled. Skipping startup.")
         return
 
-    # 检查是否已在本脚本实例中运行
+    # Check if already running in this script instance
     if name in RUNNING_PROCESSES and RUNNING_PROCESSES[name].poll() is None:
         print(
-            f"服务器 '{name}' 似乎已由此脚本启动 (PID: {RUNNING_PROCESSES[name].pid})。"
+            f"Server '{name}' appears to have been started by this script already (PID: {RUNNING_PROCESSES[name].pid})."
         )
-        # 可以选择检查端口是否真的在监听作为二次确认
+        # Can optionally check if the port is actually listening as a secondary confirmation
         port = server_config.get("sse_port") or server_config.get("port")
         if port and is_port_in_use(int(port)):
-            print(f"端口 {port} 正在监听。无需重复启动。")
+            print(f"Port {port} is listening. No need to start again.")
             return
         else:
             print(
-                f"警告: 进程记录存在，但端口 {port} 未监听。可能进程已崩溃或未完全启动。尝试重新启动..."
+                f"Warning: Process record exists, but port {port} is not listening. Process may have crashed or not fully started. Attempting to restart..."
             )
-            # 清理旧记录，允许重新启动
+            # Clean up old record, allowing restart
             del RUNNING_PROCESSES[name]
 
-    print(f"\n--- 正在启动服务器: {name} ---")
+    print(f"\n--- Starting server: {name} ---")
     server_type = server_config.get("type")
-    server_path = server_config.get("path")  # load_config 应该已经修正了这个路径
+    server_path = server_config.get("path")  # load_config should have already corrected this path
 
-    # 检查路径 (仅 source_code 类型)
+    # Check path (only for source_code type)
     if server_type == "source_code":
         if not server_path or not os.path.isdir(server_path):
             print(
-                f"错误: 服务器路径 '{server_path}' 未找到 '{name}'。请先运行 'setup'。"
+                f"Error: Server path '{server_path}' not found for '{name}'. Please run 'setup' first."
             )
             return
 
-    # 准备启动命令
+    # Prepare start command
     start_command = server_config.get("start_command")
     if not start_command:
-        print(f"错误: 服务器 '{name}' 未定义 'start_command'。")
+        print(f"Error: Server '{name}' does not define 'start_command'.")
         return
 
-    # 处理 SSE 包装命令 (如果存在)
+    # Process SSE wrapper command (if exists)
     sse_start_command_template = server_config.get("sse_start_command")
-    final_start_command = start_command  # 默认为原始命令
+    final_start_command = start_command  # Default to original command
     if sse_start_command_template:
         sse_host = server_config.get("sse_host", "localhost")
         sse_port = server_config.get("sse_port")
         allow_origin = server_config.get("allow_origin", "*")
         if not sse_port:
             print(
-                f"错误: 服务器 '{name}' 定义了 'sse_start_command' 但缺少 'sse_port'。"
+                f"Error: Server '{name}' defines 'sse_start_command' but is missing 'sse_port'."
             )
             return
 
-        # 替换占位符
+        # Replace placeholders
         try:
             final_start_command = sse_start_command_template.format(
                 sse_host=sse_host,
                 sse_port=sse_port,
                 allow_origin=allow_origin,
-                start_command=start_command,  # 原始命令作为参数传入
+                start_command=start_command,  # Original command passed as parameter
             )
-            print(f"[{name}] 使用 SSE 包装命令: {final_start_command}")
+            print(f"[{name}] Using SSE wrapper command: {final_start_command}")
         except KeyError as e:
             print(
-                f"错误: 替换 'sse_start_command' 中的占位符 {{{e}}} 时出错。请检查模板。"
+                f"Error: Error replacing placeholder {{{e}}} in 'sse_start_command'. Please check the template."
             )
             return
     else:
-        print(f"[{name}] 使用启动命令: {final_start_command}")
+        print(f"[{name}] Using start command: {final_start_command}")
 
-    # 获取环境变量
+    # Get environment variables
     env = server_config.get("env", {})
 
-    # 确定工作目录
+    # Determine working directory
     cwd = server_path if server_type == "source_code" else None
 
-    # 启动进程
+    # Start process
     process = run_command(final_start_command, cwd=cwd, env=env, server_name=name)
 
     if process:
         RUNNING_PROCESSES[name] = process
         port_to_check = server_config.get("sse_port") or server_config.get("port")
         print(
-            f"服务器 '{name}' 启动命令已执行 (PID: {process.pid})。"
-            f"{f' 预期监听端口: {port_to_check}' if port_to_check else ''}"
+            f"Server '{name}' start command executed (PID: {process.pid})."
+            f"{f' Expected listening port: {port_to_check}' if port_to_check else ''}"
         )
 
-        # 启动输出流线程
+        # Start output stream threads
         stdout_thread, stderr_thread = stream_output(process, name)
 
         if watch:
-            print(f"[{name}] 进入监视模式。按 Ctrl+C 停止。")
+            print(f"[{name}] Entering watch mode. Press Ctrl+C to stop.")
             try:
-                # 等待进程结束
+                # Wait for process to end
                 process.wait()
             except KeyboardInterrupt:
-                print(f"\n[{name}] 检测到 Ctrl+C。正在停止服务器...")
-                stop_process(name, process)  # 直接调用 stop_process
+                print(f"\n[{name}] Ctrl+C detected. Stopping server...")
+                stop_process(name, process)  # Directly call stop_process
             except Exception as e:
-                print(f"\n[{name}] 等待进程时发生错误: {e}。尝试停止...")
+                print(f"\n[{name}] Error occurred while waiting for process: {e}. Attempting to stop...")
                 stop_process(name, process)
             finally:
-                # 确保线程结束 (虽然是 daemon，join 一下更保险)
+                # Ensure threads end (although they are daemon threads, joining them is safer)
                 if stdout_thread.is_alive():
                     stdout_thread.join(timeout=1)
                 if stderr_thread.is_alive():
                     stderr_thread.join(timeout=1)
                 if name in RUNNING_PROCESSES:
-                    del RUNNING_PROCESSES[name]  # 从运行列表中移除
-                print(f"--- 服务器 '{name}' 已停止 (监视模式结束)。 ---")
+                    del RUNNING_PROCESSES[name]  # Remove from running list
+                print(f"--- Server '{name}' has stopped (watch mode ended). ---")
         else:
-            # 非 watch 模式，后台运行
-            # 短暂等待并检查进程是否快速失败
-            time.sleep(3)  # 等待 3 秒让服务有机会启动或失败
-            if process.poll() is not None:  # 进程已退出
+            # Non-watch mode, run in background
+            # Brief wait and check if process fails quickly
+            time.sleep(3)  # Wait 3 seconds to give the service a chance to start or fail
+            if process.poll() is not None:  # Process has exited
                 print(
-                    f"错误: 服务器 '{name}' (PID: {process.pid}) 似乎在启动后不久就退出了 (退出码: {process.poll()})。"
+                    f"Error: Server '{name}' (PID: {process.pid}) seems to have exited shortly after starting (exit code: {process.poll()})."
                 )
-                # 尝试读取最后的错误输出 (可能已被 stream_output 线程读取)
-                # 这里可以考虑让 stream_output 收集最后几行错误信息
+                # Try to read the last error output (may have been read by stream_output thread)
+                # Consider having stream_output collect the last few lines of error information
                 if name in RUNNING_PROCESSES:
-                    del RUNNING_PROCESSES[name]  # 从运行列表中移除
+                    del RUNNING_PROCESSES[name]  # Remove from running list
             else:
-                print(f"服务器 '{name}' (PID: {process.pid}) 正在后台运行。")
-                # 检查端口是否按预期监听 (可选但推荐)
+                print(f"Server '{name}' (PID: {process.pid}) is running in the background.")
+                # Check if port is listening as expected (optional but recommended)
                 if port_to_check:
-                    time.sleep(2)  # 再等一会确保服务监听
+                    time.sleep(2)  # Wait a bit longer to ensure service is listening
                     if is_port_in_use(int(port_to_check)):
-                        print(f"[{name}] 端口 {port_to_check} 确认正在监听。")
+                        print(f"[{name}] Port {port_to_check} confirmed to be listening.")
                     else:
                         print(
-                            f"警告: 服务器 '{name}' 正在运行，但端口 {port_to_check} 未按预期监听。"
+                            f"Warning: Server '{name}' is running, but port {port_to_check} is not listening as expected."
                         )
 
     else:
-        print(f"错误: 无法启动服务器 '{name}'。")
+        print(f"Error: Unable to start server '{name}'.")
 
 
 def stop_server(server_config: dict):
-    """停止指定服务器 (如果由当前脚本启动)"""
-    name = server_config.get("name", "未知服务器")
-    print(f"\n--- 正在停止服务器: {name} ---")
+    """Stop the specified server (if started by the current script)"""
+    name = server_config.get("name", "Unknown Server")
+    print(f"\n--- Stopping server: {name} ---")
     if name in RUNNING_PROCESSES:
         process = RUNNING_PROCESSES[name]
-        stop_process(name, process)  # 使用重构后的停止函数
-        # 无论停止是否成功，都从监控列表移除
+        stop_process(name, process)  # Use the refactored stop function
+        # Remove from monitoring list regardless of whether stopping was successful
         del RUNNING_PROCESSES[name]
     else:
-        print(f"服务器 '{name}' 未在当前脚本的管理下运行 (或已被停止)。")
-        # 注意：此函数无法停止不由当前脚本实例启动的进程
-        # 如果需要停止任何监听特定端口的进程，需要更复杂的逻辑 (例如查找PID)
+        print(f"Server '{name}' is not running under the management of the current script (or has already been stopped).")
+        # Note: This function cannot stop processes not started by the current script instance
+        # If you need to stop any process listening on a specific port, more complex logic is needed (e.g., finding PID)
 
 
 def status_servers():
-    """显示所有已配置服务器的状态"""
-    print("\n--- MCP 服务器状态 ---")
+    """Display the status of all configured servers"""
+    print("\n--- MCP Server Status ---")
     config = load_config()
     servers = config.get("servers", [])
 
     if not servers:
-        print("配置文件中未定义任何服务器。")
+        print("No servers defined in the configuration file.")
         return
 
     print(
-        f"{'名称':<20} {'启用':<7} {'类型':<12} {'端口':<6} {'状态':<25} {'PID (本实例)':<15} {'路径'}"
+        f"{'Name':<20} {'Enabled':<7} {'Type':<12} {'Port':<6} {'Status':<25} {'PID (This Instance)':<15} {'Path'}"
     )
-    print("-" * 100)  # 调整分隔线长度
+    print("-" * 100)  # Adjust separator line length
 
-    # 清理 RUNNING_PROCESSES 中已经结束的进程
+    # Clean up processes in RUNNING_PROCESSES that have already ended
     for name, process in list(RUNNING_PROCESSES.items()):
         if process.poll() is not None:
-            print(f"[状态检查] 清理已结束的进程记录: {name} (PID: {process.pid})")
+            print(f"[Status Check] Cleaning up ended process record: {name} (PID: {process.pid})")
             del RUNNING_PROCESSES[name]
 
     for server in servers:
         name = server.get("name", "N/A")
         enabled = str(server.get("enabled", True))
         stype = server.get("type", "N/A")
-        # 优先使用 sse_port，其次是 port
+        # Prioritize sse_port, then port
         port = server.get("sse_port") or server.get("port")
         path = server.get("path", "N/A")
-        status = "未知"
+        status = "Unknown"
         pid_str = "N/A"
 
         if enabled == "True":
             if port:
                 port_int = int(port)
                 if is_port_in_use(port_int):
-                    status = f"运行中 (端口 {port} 监听)"
-                    # 检查是否由本实例启动
+                    status = f"Running (port {port} listening)"
+                    # Check if started by this instance
                     if name in RUNNING_PROCESSES:
                         pid_str = str(RUNNING_PROCESSES[name].pid)
                     else:
-                        pid_str = "(外部启动?)"
+                        pid_str = "(External start?)"
                 else:
-                    status = "已停止"
-                    # 如果在本实例中有记录但端口未监听，说明可能启动失败或崩溃
+                    status = "Stopped"
+                    # If there's a record in this instance but the port is not listening, it may have failed to start or crashed
                     if name in RUNNING_PROCESSES:
                         exit_code = RUNNING_PROCESSES[name].poll()
-                        status = f"错误/已退出 (代码: {exit_code})"
+                        status = f"Error/Exited (code: {exit_code})"
                         pid_str = str(RUNNING_PROCESSES[name].pid)
-                        # 可以考虑在这里清理 RUNNING_PROCESSES[name]
+                        # Consider cleaning up RUNNING_PROCESSES[name] here
             else:
-                status = "无端口配置"  # 对于没有端口的服务，状态未知
-                if name in RUNNING_PROCESSES:  # 但如果本实例启动了它...
+                status = "No port configured"  # For services without ports, status is unknown
+                if name in RUNNING_PROCESSES:  # But if this instance started it...
                     if RUNNING_PROCESSES[name].poll() is None:
-                        status = "运行中 (无端口检查)"
+                        status = "Running (no port check)"
                         pid_str = str(RUNNING_PROCESSES[name].pid)
                     else:
                         exit_code = RUNNING_PROCESSES[name].poll()
-                        status = f"已退出 (代码: {exit_code})"
+                        status = f"Exited (code: {exit_code})"
                         pid_str = str(RUNNING_PROCESSES[name].pid)
 
         else:  # enabled == "False"
-            status = "已禁用"
+            status = "Disabled"
 
         print(
             f"{name:<20} {enabled:<7} {stype:<12} {str(port):<6} {status:<25} {pid_str:<15} {path}"
@@ -328,32 +328,32 @@ def status_servers():
 
 
 def stop_all_servers():
-    """停止所有由当前脚本实例启动的服务器"""
-    print("\n--- 正在停止所有受管服务器 ---")
+    """Stop all servers started by the current script instance"""
+    print("\n--- Stopping all managed servers ---")
     if not RUNNING_PROCESSES:
-        print("当前脚本未管理任何正在运行的服务器。")
+        print("The current script is not managing any running servers.")
         return
 
-    # 创建副本进行迭代，因为 stop_process 会修改字典
+    # Create a copy for iteration, because stop_process will modify the dictionary
     processes_to_stop = list(RUNNING_PROCESSES.items())
 
     for name, process in processes_to_stop:
-        print(f"请求停止: {name} (PID: {process.pid})")
+        print(f"Requesting stop: {name} (PID: {process.pid})")
         stop_process(name, process)
 
-    # 确认清理 (理论上 stop_process 内部已处理，但以防万一)
+    # Confirm cleanup (theoretically stop_process has already handled it internally, but just in case)
     remaining = list(RUNNING_PROCESSES.keys())
     if remaining:
-        print(f"警告: 以下服务器可能未能完全停止或清理: {', '.join(remaining)}")
+        print(f"Warning: The following servers may not have been completely stopped or cleaned up: {', '.join(remaining)}")
     else:
-        print("所有受管服务器已处理停止请求。")
+        print("All managed servers have been processed with stop requests.")
 
-    RUNNING_PROCESSES.clear()  # 确保清空
+    RUNNING_PROCESSES.clear()  # Ensure it's empty
 
 
 def list_servers():
-    """列出所有已配置的服务器 (打印配置)"""
-    print("\n--- 已配置的 MCP 服务器 ---")
+    """List all configured servers (print configuration)"""
+    print("\n--- Configured MCP Servers ---")
     config = load_config()
     print(json.dumps(config, indent=2, ensure_ascii=False))
 
@@ -362,23 +362,23 @@ def list_servers():
 
 
 def setup_signal_handlers():
-    """设置信号处理程序以尝试优雅地停止所有服务器"""
+    """Set up signal handlers to try to gracefully stop all servers"""
 
     def signal_handler(sig, frame):
-        print(f"\n检测到信号 {signal.Signals(sig).name}。正在尝试停止所有受管服务器...")
+        print(f"\nSignal {signal.Signals(sig).name} detected. Attempting to stop all managed servers...")
         stop_all_servers()
-        print("退出脚本。")
+        print("Exiting script.")
         sys.exit(0)
 
-    # 处理 SIGINT (Ctrl+C) 和 SIGTERM (kill 命令默认发送的信号)
+    # Handle SIGINT (Ctrl+C) and SIGTERM (signal sent by kill command by default)
     try:
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
-        # 在 Windows 上，SIGBREAK 可能也相关，但 CTRL_BREAK_EVENT 用于子进程
+        # On Windows, SIGBREAK may also be relevant, but CTRL_BREAK_EVENT is used for child processes
         if os.name == "nt":
-            # signal.signal(signal.SIGBREAK, signal_handler) # 通常不需要处理主脚本的 SIGBREAK
+            # signal.signal(signal.SIGBREAK, signal_handler) # Usually no need to handle SIGBREAK for the main script
             pass
     except ValueError:
-        print("警告: 在非主线程中运行，无法设置信号处理程序。")
+        print("Warning: Running in a non-main thread, cannot set signal handlers.")
     except AttributeError:
-        print("警告: 当前环境不支持信号处理 (例如某些 Windows 环境或受限环境)。")
+        print("Warning: The current environment does not support signal handling (e.g., some Windows environments or restricted environments).")

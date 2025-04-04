@@ -12,7 +12,14 @@ poetry.lock
 
 # Virtual environments
 .venv
+.venv/
+venv/
+env/
+
+
+# Config files
 config/*.json
+backup/
 !mcp_servers.example.json
 !mcp_cline_settings_for_Cline_and_RooCode.json
 

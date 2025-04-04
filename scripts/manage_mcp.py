@@ -13,29 +13,29 @@ from pathlib import Path
 
 import psutil
 
-# 配置文件路径
+# Configuration file paths
 CONFIG_FILE = Path(__file__).parent.parent / "config" / "mcp_servers.json"
 PID_DIR = Path(__file__).parent.parent / "pids"
 LOG_DIR = Path(__file__).parent.parent / "logs"
 
-# 确保目录存在
+# Ensure directories exist
 PID_DIR.mkdir(exist_ok=True)
 LOG_DIR.mkdir(exist_ok=True)
 
 
-# 加载配置
+# Load configuration
 def load_config():
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-# 保存 PID 到文件
+# Save PID to file
 def save_pid(name, pid):
     with open(PID_DIR / f"{name}.pid", "w") as f:
         f.write(str(pid))
 
 
-# 从文件读取 PID
+# Load PID from file
 def load_pid(name):
     pid_file = PID_DIR / f"{name}.pid"
     if pid_file.exists():
@@ -44,14 +44,14 @@ def load_pid(name):
     return None
 
 
-# 删除 PID 文件
+# Remove PID file
 def remove_pid_file(name):
     pid_file = PID_DIR / f"{name}.pid"
     if pid_file.exists():
         pid_file.unlink()
 
 
-# 检查进程是否运行
+# Check if process is running
 def is_running(pid):
     try:
         return psutil.pid_exists(pid)
@@ -63,7 +63,7 @@ def is_running(pid):
         return False  # Assume not running if error occurs
 
 
-# 检查端口是否被占用
+# Check if port is in use
 def is_port_in_use(port):
     for conn in psutil.net_connections():
         if conn.laddr.port == port:
@@ -71,129 +71,129 @@ def is_port_in_use(port):
     return None
 
 
-# 启动服务器
+# Start server
 def start_server(server):
     name = server["name"]
 
-    # 检查是否已在运行
+    # Check if already running
     pid = load_pid(name)
     if pid and is_running(pid):
-        print(f"服务器 '{name}' 已经在运行(PID: {pid})")
+        print(f"Server '{name}' is already running (PID: {pid})")
         return
 
-    # 检查端口是否已被占用
+    # Check if port is already in use
     port = server.get("sse_port", server.get("port"))
     if port:
         existing_pid = is_port_in_use(port)
         if existing_pid:
-            print(f"警告: 端口 {port} 已被进程 {existing_pid} 占用")
+            print(f"Warning: Port {port} is already in use by process {existing_pid}")
 
-    # 准备环境变量
+    # Prepare environment variables
     env = os.environ.copy()
     for key, value in server.get("env", {}).items():
         env[key] = value
 
-    # 准备启动命令
+    # Prepare start command
     if "sse_host" in server and "sse_port" in server:
-        print(f"启动服务器 '{name}' (SSE 模式)")
-        # SSE 模式
+        print(f"Starting server '{name}' (SSE mode)")
+        # SSE mode
         cmd = server["sse_start_command"]
-        # 替换命令中的占位符
+        # Replace placeholders in command
         for key, value in server.items():
-            # 总是尝试替换，并将 value 转换为字符串以确保兼容性
+            # Always try to replace, and convert value to string to ensure compatibility
             cmd = cmd.replace("{" + key + "}", str(value))
-        # 替换环境变量占位符
+        # Replace environment variable placeholders
         for key, value in server.get("env", {}).items():
             # cmd = cmd.replace("{" + key + "}", value)
             cmd += f" -e {key} {value}"
-        # 替换启动命令
+        # Replace start command
         start_cmd = server["start_command"]
         cmd = cmd.replace("{start_command}", start_cmd)
     else:
-        # 非 SSE 模式
+        # Non-SSE mode
         cmd = server["start_command"]
         if "port" in server:
             cmd = cmd.replace("{port}", str(server["port"]))
 
-    # 创建日志文件
+    # Create log file
     log_file = open(LOG_DIR / f"{name}.log", "a")
 
-    # 打印启动信息，帮助调试
-    print(f"正在启动服务器 '{name}' 执行命令: {cmd}")
+    # Print startup information for debugging
+    print(f"Starting server '{name}' with command: {cmd}")
 
-    # 启动服务器
+    # Start server
     try:
         # Bandit B602: shell=True is a security risk if cmd contains untrusted input.
-        print(f"启动命令: {cmd}")
+        print(f"Start command: {cmd}")
 
         process = subprocess.Popen(
             cmd, shell=True, env=env, stdout=log_file, stderr=log_file
         )
         save_pid(name, process.pid)
-        print(f"已启动服务器 '{name}' (PID: {process.pid})")
+        print(f"Server '{name}' started (PID: {process.pid})")
     except Exception as e:
-        print(f"启动服务器 '{name}' 失败: {e}")
+        print(f"Failed to start server '{name}': {e}")
 
 
-# 停止服务器
+# Stop server
 def stop_server(server):
     name = server["name"]
     pid = load_pid(name)
 
-    # 检查是否由我们的脚本启动
+    # Check if started by our script
     if pid and is_running(pid):
         try:
-            # 在Windows上使用taskkill杀死进程树
+            # On Windows, use taskkill to kill process tree
             if platform.system() == "Windows":
                 subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], check=False)
             else:
                 os.kill(pid, signal.SIGTERM)
-                # 给进程一点时间正常退出
+                # Give process some time to exit normally
                 time.sleep(1)
                 if is_running(pid):
                     os.kill(pid, signal.SIGKILL)
-            print(f"已停止服务器 '{name}' (PID: {pid})")
+            print(f"Server '{name}' stopped (PID: {pid})")
         except Exception as e:
-            print(f"停止服务器 '{name}' 失败: {e}")
+            print(f"Failed to stop server '{name}': {e}")
         finally:
             remove_pid_file(name)
     else:
-        # 检查端口是否被占用，尝试杀死占用进程
+        # Check if port is in use, try to kill the process using it
         port = server.get("sse_port", server.get("port"))
         if port:
             port_pid = is_port_in_use(port)
             if port_pid:
                 try:
-                    # 在Windows上使用taskkill杀死进程树
+                    # On Windows, use taskkill to kill process tree
                     if platform.system() == "Windows":
                         subprocess.run(
                             ["taskkill", "/F", "/T", "/PID", str(port_pid)], check=False
                         )
                     else:
                         os.kill(port_pid, signal.SIGTERM)
-                        # 给进程一点时间正常退出
+                        # Give process some time to exit normally
                         time.sleep(1)
                         if is_running(port_pid):
                             os.kill(port_pid, signal.SIGKILL)
                     print(
-                        f"已停止在端口 {port} 上运行的服务器 '{name}' (PID: {port_pid})"
+                        f"Stopped server '{name}' running on port {port} (PID: {port_pid})"
                     )
                 except Exception as e:
-                    print(f"停止端口 {port} 上的进程失败: {e}")
+                    print(f"Failed to stop process on port {port}: {e}")
             else:
-                print(f"服务器 '{name}' 没有在运行。")
+                print(f"Server '{name}' is not running.")
         else:
-            print(f"服务器 '{name}' 未在此脚本实例的管理下运行。")
+            print(f"Server '{name}' is not running under this script instance.")
 
 
-# 重启服务器
+# Restart server
 def restart_server(server):
     stop_server(server)
-    time.sleep(1)  # 等待一秒确保完全停止
+    time.sleep(1)  # Wait one second to ensure complete shutdown
     start_server(server)
 
 
-# 检查服务器状态
+# Check server status
 def server_status(server):
     name = server["name"]
     enabled = server.get("enabled", True)
@@ -203,31 +203,31 @@ def server_status(server):
     # path = server.get("path", "未知")
     url = f"http://{host}:{port}/sse"
 
-    # 检查 PID 文件
+    # Check PID file
     pid = load_pid(name)
     pid_running = pid and is_running(pid)
 
-    # 检查端口
+    # Check port
     port_pid = None
     if port != "N/A":
         port_pid = is_port_in_use(port)
 
-    # 确定状态
+    # Determine status
     if not enabled:
-        status = "已禁用"
+        status = "Disabled"
         pid_str = "N/A"
     elif port_pid:
         if pid_running and port_pid == pid:
-            status = f"运行中 (端口 {port} 监听)"
+            status = f"Running (port {port} listening)"
             pid_str = str(pid)
         else:
-            status = f"运行中 (端口 {port} 监听)"
-            pid_str = "(外部启动)"
+            status = f"Running (port {port} listening)"
+            pid_str = "(External start)"
     elif pid_running:
-        status = "运行中"
+        status = "Running"
         pid_str = str(pid)
     else:
-        status = "已停止"
+        status = "Stopped"
         pid_str = "N/A"
 
     return {
@@ -241,7 +241,7 @@ def server_status(server):
     }
 
 
-# 获取所有服务器状态
+# Get status of all servers
 def get_all_status():
     config = load_config()
     status_list = []
@@ -250,13 +250,13 @@ def get_all_status():
     return status_list
 
 
-# 显示状态表格
+# Display status table
 def print_status_table():
     status_list = get_all_status()
 
-    # 打印表头
-    print("\n--- MCP 服务器状态 ---")
-    headers = ["名称", "启用", "类型", "端口", "状态", "PID (本实例)", "路径"]
+    # Print header
+    print("\n--- MCP Server Status ---")
+    headers = ["Name", "Enabled", "Type", "Port", "Status", "PID (This Instance)", "Path"]
     col_widths = [20, 10, 15, 10, 30, 20, 70]
 
     print(
@@ -302,7 +302,7 @@ def print_status_table():
         )
 
 
-# 启动所有已启用的服务器
+# Start all enabled servers
 def start_all_servers():
     config = load_config()
     for server in config["servers"]:
@@ -310,18 +310,18 @@ def start_all_servers():
             start_server(server)
 
 
-# 停止所有服务器
+# Stop all servers
 def stop_all_servers():
     config = load_config()
     for server in config["servers"]:
         stop_server(server)
 
 
-# 主函数
+# Main function
 def main():
     if len(sys.argv) < 2:
-        print("用法: python manage_mcp.py <命令> [服务器名称]")
-        print("命令: start, stop, restart, status")
+        print("Usage: python manage_mcp.py <command> [server_name]")
+        print("Commands: start, stop, restart, status")
         return
 
     command = sys.argv[1]
@@ -334,20 +334,20 @@ def main():
         return
 
     if command == "start" and not server_name:
-        # 启动所有已启用的服务器
+        # Start all enabled servers
         start_all_servers()
         return
 
     if command == "stop" and not server_name:
-        # 停止所有服务器
+        # Stop all servers
         stop_all_servers()
         return
 
     if not server_name:
-        print("请指定服务器名称")
+        print("Please specify a server name")
         return
 
-    # 查找服务器配置
+    # Find server configuration
     server = None
     for s in config["servers"]:
         if s["name"] == server_name:
@@ -355,15 +355,15 @@ def main():
             break
 
     if not server:
-        print(f"未找到服务器 '{server_name}'")
+        print(f"Server '{server_name}' not found")
         return
 
-    # 检查服务器是否启用
+    # Check if server is enabled
     if not server.get("enabled", True):
-        print(f"服务器 '{server_name}' 已禁用。要启用，请修改配置文件。")
+        print(f"Server '{server_name}' is disabled. To enable it, please modify the configuration file.")
         return
 
-    # 执行命令
+    # Execute command
     if command == "start":
         start_server(server)
     elif command == "stop":
@@ -371,7 +371,7 @@ def main():
     elif command == "restart":
         restart_server(server)
     else:
-        print(f"未知命令: {command}")
+        print(f"Unknown command: {command}")
 
 
 if __name__ == "__main__":

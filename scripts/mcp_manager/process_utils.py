@@ -1,6 +1,6 @@
-"""MCP 服务器管理工具 - 进程实用工具模块
+"""MCP Server Management Tool - Process Utility Module
 
-包含用于进程管理的实用函数，包括命令执行、端口检查、进程终止等功能。
+Contains utility functions for process management, including command execution, port checking, process termination, and other functionalities.
 """
 
 # scripts/mcp_manager/process_utils.py
@@ -12,26 +12,26 @@ import sys
 import threading
 import time
 
-# 用于存储由本脚本启动的进程信息 {name: Popen_object}
-# 注意：这只跟踪当前运行实例启动的进程
+# Used to store process information started by this script {name: Popen_object}
+# Note: This only tracks processes started by the current running instance
 RUNNING_PROCESSES = {}
 
 # --- Port Checking ---
 
 
 def is_port_in_use(port: int) -> bool:
-    """检查本地端口是否被监听"""
+    """Check if a local port is being listened on"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            s.settimeout(0.2)  # 短暂超时
-            # 尝试连接，如果成功说明端口在使用中
+            s.settimeout(0.2)  # Brief timeout
+            # Try to connect, if successful it means the port is in use
             s.connect(("127.0.0.1", port))
             return True
         except (socket.timeout, ConnectionRefusedError):
             return False
         except Exception as e:
-            # 其他错误也认为端口不可用或检查失败
-            # print(f"检查端口 {port} 时发生错误: {e}") # 可选的调试信息
+            # Other errors also indicate that the port is unavailable or the check failed
+            # print(f"Error checking port {port}: {e}") # Optional debug information
             return False
 
 
@@ -41,68 +41,68 @@ def is_port_in_use(port: int) -> bool:
 def run_command(
     command: str, cwd: str | None = None, env: dict | None = None, server_name: str = ""
 ) -> subprocess.Popen | None:
-    """在指定目录运行命令并返回 Popen 对象"""
-    print(f"[{server_name}] 准备执行命令: '{command}' 于目录 '{cwd or os.getcwd()}'")
+    """Run a command in the specified directory and return a Popen object"""
+    print(f"[{server_name}] Preparing to execute command: '{command}' in directory '{cwd or os.getcwd()}'")
 
     current_env = os.environ.copy()
     if env:
         current_env.update(env)
-        # print(f"[{server_name}] 使用了自定义环境变量: {env}") # 调试信息
+        # print(f"[{server_name}] Using custom environment variables: {env}") # Debug information
 
-    # 确保 PATH 存在
+    # Ensure PATH exists
     if "PATH" not in current_env or not current_env["PATH"]:
-        current_env["PATH"] = os.environ.get("PATH", "")  # 从 os.environ 获取以防万一
+        current_env["PATH"] = os.environ.get("PATH", "")  # Get from os.environ just in case
 
     shell = False
     args = command  # 默认将整个命令传递
 
-    # Windows 特定的命令处理
+    # Windows-specific command handling
     if os.name == "nt":
-        # 对于需要 cmd /c 的命令 (例如包含管道、重定向或内置命令)
+        # For commands that need cmd /c (e.g., containing pipes, redirections, or built-in commands)
         if command.lower().startswith("cmd /c") or any(
             op in command for op in ["|", ">", "<", "&", "&&", "||"]
         ):
             args = command  # 保持原样
             shell = True  # cmd /c 需要 shell=True
-            print(f"[DEBUG][{server_name}] 使用 cmd /c (shell=True) 执行: {args}")
-        # 对于 npm/npx，最好直接调用 .cmd 文件，避免多一层 cmd /c
+            print(f"[DEBUG][{server_name}] Using cmd /c (shell=True) to execute: {args}")
+        # For npm/npx, it's better to call the .cmd file directly, avoiding an extra layer of cmd /c
         elif command.lower().startswith("npm ") or command.lower().startswith("npx "):
             parts = command.split(" ", 1)
             cmd_name = parts[0]
             cmd_args = parts[1] if len(parts) > 1 else ""
-            # 尝试找到 npm.cmd 或 npx.cmd 的完整路径 (可能在 PATH 或 node_modules/.bin)
-            # 这里简化处理，直接使用 cmd /c 保证兼容性，虽然效率稍低
+            # Try to find the full path of npm.cmd or npx.cmd (may be in PATH or node_modules/.bin)
+            # Simplified handling here, using cmd /c directly for compatibility, although slightly less efficient
             args = f"cmd /c {cmd_name} {cmd_args}"
             shell = True
             print(
-                f"[DEBUG][{server_name}] 使用 cmd /c (shell=True) 执行 {cmd_name}: {args}"
+                f"[DEBUG][{server_name}] Using cmd /c (shell=True) to execute {cmd_name}: {args}"
             )
         else:
-            # 对于其他简单命令，尝试直接执行，可能不需要 shell=True
+            # For other simple commands, try to execute directly, may not need shell=True
             try:
-                # 尝试分割命令，如果失败（例如路径含空格且未加引号），则回退到 shell=True
+                # Try to split the command, if it fails (e.g., path contains spaces and is not quoted), fall back to shell=True
                 args_list = subprocess.list2cmdline(
                     [command.split()[0]]
                 )  # 检查第一个参数是否像可执行文件
                 args = command.split()
                 shell = False  # 尝试非 shell 模式
-                print(f"[DEBUG][{server_name}] 尝试直接执行 (shell=False): {args}")
+                print(f"[DEBUG][{server_name}] Attempting to execute directly (shell=False): {args}")
             except Exception:
-                args = command  # 回退到将整个命令作为字符串传递
+                args = command  # Fall back to passing the entire command as a string
                 shell = True
-                print(f"[DEBUG][{server_name}] 无法分割命令，回退到 shell=True: {args}")
+                print(f"[DEBUG][{server_name}] Unable to split command, falling back to shell=True: {args}")
 
-    # Linux/macOS 处理
+    # Linux/macOS handling
     else:
-        # 通常可以直接分割，但 shell=True 更能处理复杂命令
+        # Usually can be split directly, but shell=True better handles complex commands
         args = command
-        shell = True  # 在非 Windows 上使用 shell=True 通常更安全地处理复杂命令
-        print(f"[DEBUG][{server_name}] 在非 Windows 上使用 shell=True 执行: {args}")
+        shell = True  # On non-Windows, using shell=True is usually safer for handling complex commands
+        print(f"[DEBUG][{server_name}] On non-Windows using shell=True to execute: {args}")
 
     try:
         creationflags = 0
         if os.name == "nt":
-            # CREATE_NEW_PROCESS_GROUP 允许我们之后可靠地终止子进程
+            # CREATE_NEW_PROCESS_GROUP allows us to reliably terminate child processes later
             creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
 
         process = subprocess.Popen(
@@ -117,14 +117,14 @@ def run_command(
             shell=shell,
             creationflags=creationflags,
         )
-        print(f"[{server_name}] 命令已启动 (PID: {process.pid})")
+        print(f"[{server_name}] Command started (PID: {process.pid})")
         return process
     except FileNotFoundError:
         cmd_to_report = args[0] if isinstance(args, list) else args.split()[0]
-        print(f"错误: 命令 '{cmd_to_report}' 未找到。请确保它已安装并在系统 PATH 中。")
+        print(f"Error: Command '{cmd_to_report}' not found. Please ensure it is installed and in the system PATH.")
         return None
     except Exception as e:
-        print(f"错误: 执行命令 '{command}' 时出错: {e}")
+        print(f"Error: Error executing command '{command}': {e}")
         return None
 
 
@@ -132,7 +132,7 @@ def run_command(
 
 
 def stream_output(process: subprocess.Popen, server_name: str):
-    """实时打印进程的stdout和stderr"""
+    """Print process stdout and stderr in real-time"""
 
     def reader(pipe, prefix):
         try:
@@ -140,14 +140,14 @@ def stream_output(process: subprocess.Popen, server_name: str):
                 for line in iter(pipe.readline, ""):
                     print(f"[{server_name}-{prefix}] {line.strip()}")
         except ValueError:
-            # 可能在进程结束时管道关闭导致此错误
-            print(f"[{server_name}-{prefix}] 读取管道时出错 (可能已关闭).")
+            # This error may occur when the pipe is closed as the process ends
+            print(f"[{server_name}-{prefix}] Error reading pipe (may be closed).")
         finally:
             if pipe:
                 try:
                     pipe.close()
                 except Exception:
-                    pass  # 忽略关闭错误
+                    pass  # Ignore closing errors
 
     stdout_thread = threading.Thread(
         target=reader, args=(process.stdout, "out"), daemon=True
@@ -164,70 +164,70 @@ def stream_output(process: subprocess.Popen, server_name: str):
 
 
 def stop_process(name: str, process: subprocess.Popen):
-    """尝试停止指定的进程"""
-    if process.poll() is None:  # 进程仍在运行
-        print(f"[{name}] 正在尝试停止进程 (PID: {process.pid})...")
+    """Attempt to stop the specified process"""
+    if process.poll() is None:  # Process is still running
+        print(f"[{name}] Attempting to stop process (PID: {process.pid})...")
         try:
-            # 在 Windows 上，发送 CTRL_BREAK_EVENT 通常是停止控制台应用的推荐方式
-            # 但 terminate() / kill() 更通用
+            # On Windows, sending CTRL_BREAK_EVENT is usually the recommended way to stop console applications
+            # But terminate() / kill() is more universal
             if os.name == "nt":
-                print(f"[{name}] (Windows) 发送 CTRL_BREAK_EVENT 到进程组...")
-                # 注意：这会发送到整个进程组，可能影响子进程
+                print(f"[{name}] (Windows) Sending CTRL_BREAK_EVENT to process group...")
+                # Note: This will be sent to the entire process group, may affect child processes
                 os.kill(process.pid, signal.CTRL_BREAK_EVENT)
             else:
-                print(f"[{name}] (非 Windows) 发送 SIGTERM 信号...")
-                process.terminate()  # 发送 SIGTERM
+                print(f"[{name}] (Non-Windows) Sending SIGTERM signal...")
+                process.terminate()  # Send SIGTERM
 
-            # 等待一段时间让进程响应
+            # Wait for a while to let the process respond
             try:
                 process.wait(timeout=10)
-                print(f"[{name}] 进程 (PID: {process.pid}) 已成功停止。")
+                print(f"[{name}] Process (PID: {process.pid}) has been successfully stopped.")
             except subprocess.TimeoutExpired:
                 print(
-                    f"[{name}] 进程 (PID: {process.pid}) 在 10 秒内未响应 SIGTERM/CTRL_BREAK。尝试强制终止 (SIGKILL)..."
+                    f"[{name}] Process (PID: {process.pid}) did not respond to SIGTERM/CTRL_BREAK within 10 seconds. Attempting to force terminate (SIGKILL)..."
                 )
-                process.kill()  # 发送 SIGKILL
-                process.wait(timeout=5)  # 等待 SIGKILL 生效
-                print(f"[{name}] 进程 (PID: {process.pid}) 已被强制终止。")
-            except Exception as e:  # 处理 wait 可能出现的其他错误
+                process.kill()  # Send SIGKILL
+                process.wait(timeout=5)  # Wait for SIGKILL to take effect
+                print(f"[{name}] Process (PID: {process.pid}) has been forcibly terminated.")
+            except Exception as e:  # Handle other errors that may occur with wait
                 print(
-                    f"[{name}] 等待进程 {process.pid} 停止时发生错误: {e}. 尝试强制终止..."
+                    f"[{name}] Error occurred while waiting for process {process.pid} to stop: {e}. Attempting to force terminate..."
                 )
                 process.kill()
-                print(f"[{name}] 进程 (PID: {process.pid}) 已被强制终止。")
+                print(f"[{name}] Process (PID: {process.pid}) has been forcibly terminated.")
 
         except ProcessLookupError:
             print(
-                f"[{name}] 进程 (PID: {process.pid}) 在尝试停止时未找到 (可能已自行退出)。"
+                f"[{name}] Process (PID: {process.pid}) not found when attempting to stop (may have exited on its own)."
             )
         except OSError as e:
-            print(f"[{name}] 停止进程 {process.pid} 时发生 OS 错误: {e}。")
+            print(f"[{name}] OS error occurred when stopping process {process.pid}: {e}.")
         except Exception as e:
-            print(f"[{name}] 停止进程 {process.pid} 时发生意外错误: {e}")
+            print(f"[{name}] Unexpected error occurred when stopping process {process.pid}: {e}")
     else:
-        print(f"[{name}] 进程 (PID: {process.pid}) 已经停止。")
+        print(f"[{name}] Process (PID: {process.pid}) is already stopped.")
 
-    # 清理标准输出/错误流
+    # Clean up standard output/error streams
     try:
         if process.stdout:
             process.stdout.close()
         if process.stderr:
             process.stderr.close()
     except Exception:
-        pass  # 忽略关闭错误
+        pass  # Ignore closing errors
 
 
 # --- Git Operations ---
 
 
 def clone_repo(repo_url: str, target_dir: str, server_name: str = "") -> bool:
-    """克隆或更新Git仓库"""
+    """Clone or update Git repository"""
     target_dir_abs = os.path.abspath(target_dir)
     git_command_base = ["git"]
 
     if not os.path.exists(target_dir_abs):
         print(
-            f"[{server_name}] 仓库目录不存在，正在克隆 {repo_url} 到 {target_dir_abs}..."
+            f"[{server_name}] Repository directory does not exist, cloning {repo_url} to {target_dir_abs}..."
         )
         command = git_command_base + ["clone", repo_url, target_dir_abs]
         try:
@@ -239,26 +239,26 @@ def clone_repo(repo_url: str, target_dir: str, server_name: str = "") -> bool:
                 encoding="utf-8",
                 errors="replace",
             )
-            print(f"[{server_name}] 克隆成功。")
+            print(f"[{server_name}] Clone successful.")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"[{server_name}] 错误: 克隆仓库失败。返回码: {e.returncode}")
+            print(f"[{server_name}] Error: Failed to clone repository. Return code: {e.returncode}")
             print(f"[{server_name}] Git Stderr:\n{e.stderr}")
             print(f"[{server_name}] Git Stdout:\n{e.stdout}")
             return False
         except FileNotFoundError:
             print(
-                f"[{server_name}] 错误: 'git' 命令未找到。请确保 Git 已安装并添加到系统 PATH。"
+                f"[{server_name}] Error: 'git' command not found. Please ensure Git is installed and added to the system PATH."
             )
             return False
         except Exception as e:
-            print(f"[{server_name}] 克隆仓库时发生未知错误: {e}")
+            print(f"[{server_name}] Unknown error occurred while cloning repository: {e}")
             return False
     else:
-        print(f"[{server_name}] 目录 {target_dir_abs} 已存在。尝试更新 (git pull)...")
+        print(f"[{server_name}] Directory {target_dir_abs} already exists. Attempting to update (git pull)...")
         command = git_command_base + ["pull"]
         try:
-            # 在目标目录执行 git pull
+            # Execute git pull in the target directory
             result = subprocess.run(
                 command,
                 cwd=target_dir_abs,
@@ -268,22 +268,22 @@ def clone_repo(repo_url: str, target_dir: str, server_name: str = "") -> bool:
                 encoding="utf-8",
                 errors="replace",
             )
-            print(f"[{server_name}] 更新成功。")
-            # 打印 git pull 的输出（可选）
+            print(f"[{server_name}] Update successful.")
+            # Print git pull output (optional)
             # if result.stdout.strip():
             #     print(f"[{server_name}] Git Pull Output:\n{result.stdout.strip()}")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"[{server_name}] 警告: 更新仓库失败。返回码: {e.returncode}")
+            print(f"[{server_name}] Warning: Failed to update repository. Return code: {e.returncode}")
             print(f"[{server_name}] Git Stderr:\n{e.stderr}")
             print(f"[{server_name}] Git Stdout:\n{e.stdout}")
-            # 不认为是致命错误，返回 True，但打印警告
-            return True  # 或者根据需要返回 False
+            # Not considered a fatal error, return True but print a warning
+            return True  # Or return False as needed
         except FileNotFoundError:
             print(
-                f"[{server_name}] 错误: 'git' 命令未找到。请确保 Git 已安装并添加到系统 PATH。"
+                f"[{server_name}] Error: 'git' command not found. Please ensure Git is installed and added to the system PATH."
             )
-            return False  # 更新失败是问题
+            return False  # Update failure is a problem
         except Exception as e:
-            print(f"[{server_name}] 更新仓库时发生未知错误: {e}")
-            return False  # 更新失败是问题
+            print(f"[{server_name}] Unknown error occurred while updating repository: {e}")
+            return False  # Update failure is a problem

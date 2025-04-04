@@ -1,6 +1,6 @@
-"""MCP服务器配置管理模块
+"""MCP Server Configuration Management Module
 
-该模块提供了MCP服务器配置的加载和保存功能。
+This module provides functionality for loading and saving MCP server configurations.
 """
 
 import json
@@ -17,20 +17,20 @@ SOURCE_CODE_SERVERS_DIR = os.path.join(BASE_DIR, "mcp-servers")
 
 
 def load_config():
-    """加载服务器配置并自动修正路径"""
+    """Load server configuration and automatically correct paths"""
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             config = json.load(f)
     except FileNotFoundError:
-        print(f"错误: 配置文件未找到于 {CONFIG_FILE}")
+        print(f"Error: Configuration file not found at {CONFIG_FILE}")
         sys.exit(1)
     except json.JSONDecodeError:
-        print(f"错误: 配置文件 {CONFIG_FILE} 不是有效的 JSON。")
+        print(f"Error: Configuration file {CONFIG_FILE} is not valid JSON.")
         sys.exit(1)
 
     updated = False
     for server in config.get("servers", []):
-        # 仅处理 source_code 类型的服务器路径
+        # Only process paths for source_code type servers
         if server.get("type") == "source_code":
             if server.get("repo") and server.get("subdir") is not None:
                 repo_name = server["repo"].split("/")[-1].replace(".git", "")
@@ -41,7 +41,7 @@ def load_config():
                 else:
                     expected_path = os.path.join(repo_base_path, server["subdir"])
 
-                # 规范化路径以进行比较
+                # Normalize paths for comparison
                 expected_path_norm = os.path.normpath(expected_path).replace("\\", "/")
                 current_path_norm = (
                     os.path.normpath(server.get("path", "")).replace("\\", "/")
@@ -49,19 +49,19 @@ def load_config():
                     else ""
                 )
 
-                # 如果配置中的path不正确或为空，则更新为预期路径
+                # If the path in the configuration is incorrect or empty, update it to the expected path
                 if current_path_norm != expected_path_norm:
                     print(
-                        f"更新服务器 '{server['name']}' 的路径为: {expected_path_norm}"
+                        f"Updating server '{server['name']}' path to: {expected_path_norm}"
                     )
                     server["path"] = expected_path_norm
                     updated = True
             elif not server.get("path"):
                 print(
-                    f"警告: source_code 服务器 '{server['name']}' 缺少 'repo'/'subdir' 或 'path' 配置。"
+                    f"Warning: source_code server '{server['name']}' is missing 'repo'/'subdir' or 'path' configuration."
                 )
 
-    # 如果有更新，则保存配置
+    # If there are updates, save the configuration
     if updated:
         save_config(config)
 
@@ -69,10 +69,10 @@ def load_config():
 
 
 def save_config(config):
-    """保存服务器配置"""
+    """Save server configuration"""
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
-        print(f"配置已更新并保存至 {CONFIG_FILE}")
+        print(f"Configuration updated and saved to {CONFIG_FILE}")
     except IOError:
-        print(f"错误: 无法写入配置文件 {CONFIG_FILE}")
+        print(f"Error: Cannot write to configuration file {CONFIG_FILE}")
