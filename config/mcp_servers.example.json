@@ -1,0 +1,66 @@
+{
+  "servers": [
+    {
+      "name": "fetch",
+      "enabled": true,
+      "type": "uvx",
+      "sse_host": "localhost",
+      "sse_port": 23001,
+      "allow_origin": "*",
+      "install_commands": ["uvx -v mcp-server-fetch"],
+      "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
+      "start_command": "uvx mcp-server-fetch  ",
+      "env": {}
+    },
+    {
+      "name": "filesystem",
+      "enabled": true,
+      "type": "uvx",
+      "sse_host": "localhost",
+      "sse_port": 23002,
+      "allow_origin": "*",
+      "install_commands": ["npx -y @modelcontextprotocol/server-filesystem"],
+      "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
+      "start_command": "npx @modelcontextprotocol/server-filesystem ~/",
+      "env": {}
+    },
+    {
+      "name": "git",
+      "enabled": true,
+      "type": "uvx",
+      "sse_host": "localhost",
+      "sse_port": 23003,
+      "allow_origin": "*",
+      "install_commands": ["npx -y mcp-server-git"],
+      "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
+      "start_command": "uvx mcp-server-git",
+      "env": {}
+    },
+    {
+      "name": "github",
+      "enabled": true,
+      "type": "node",
+      "sse_host": "localhost",
+      "sse_port": 23005,
+      "allow_origin": "*",
+      "install_commands": ["npx -y @modelcontextprotocol/server-github"],
+      "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
+      "start_command": "npx @modelcontextprotocol/server-github",
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR GITHUB PERSONAL ACCESS TOKEN>"
+      }
+    },
+    {
+      "name": "duckduckgo",
+      "enabled": true,
+      "type": "uvx",
+      "sse_host": "localhost",
+      "sse_port": 23008,
+      "allow_origin": "*",
+      "install_commands": ["uvx -v duckduckgo-mcp-server"],
+      "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
+      "start_command": "uvx duckduckgo-mcp-server",
+      "env": {}
+    }
+  ]
+}

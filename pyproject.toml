@@ -1,0 +1,40 @@
+[project]
+name = "mcp-server-unified-deployment"
+version = "0.0.1"
+description = "A MCP Server Unified Deployment"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=1.6.0",
+    "psutil>=5.9.0",
+    "httpx>=0.28.0",
+    "httpx-sse>=0.4.0",
+    "typing-extensions>=4.9.0"
+]
+[[project.authors]]
+name = "BigUncle"
+email = "biguncle2017@gmail.com"
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts/mcp_manager"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+mcp-server-unified-deployment = "mcp_server_unified_deployment:main"
+
+
+[tool.black]
+line-length = 120
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+known_first_party = ["mcp_manager"]
+
+[tool.ruff]
+select = ["E", "F", "W", "I", "B", "Q"]
+ignore = ["E203"]
+target-version = "py38"
