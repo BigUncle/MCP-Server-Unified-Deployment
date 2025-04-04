@@ -14,7 +14,7 @@ A unified deployment and management tool for MCP (Model Context Protocol) server
 
 ## Prerequisites
 
-- Python 12+
+- Python 3.12+
 - Git (for source code type servers)
 - Node.js and npm (for Node.js based servers)
 - uv (for dependency management)
