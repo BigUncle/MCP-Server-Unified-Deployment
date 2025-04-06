@@ -1,0 +1,45 @@
+{
+  "name": "MCPDev",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "mcpdev",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "root",
+  // "overrideCommand": false,
+  // "mounts": [],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "ms-azuretools.vscode-docker",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "github.vscode-github-actions",
+        "rooveterinaryinc.roo-cline",
+        "formulahendry.code-runner",
+        "mtxr.sqltools",
+        "tldraw-org.tldraw-vscode",
+        "cweijan.xmind-viewer",
+        "alibaba-cloud.tongyi-lingma",
+        "saoudrizwan.claude-dev",
+        "aminer.codegeex"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true
+        // "remote.containers.enableWSLg": false,
+        // "remote.containers.mountWslDistro": false
+      }
+    }
+  },
+  "forwardPorts": [
+    5678, 23001, 23002, 23003, 23004, 23005, 23006, 23007, 23008, 23009, 23010,
+    23011, 23012, 23013, 23014, 23015, 23016, 23017, 23018, 23019, 23020, 23021,
+    23022, 23023, 23024, 23025, 23026, 23027, 23028, 23029, 23030
+  ],
+  "remoteEnv": {
+    "PYTHONUNBUFFERED": "1"
+  }
+}

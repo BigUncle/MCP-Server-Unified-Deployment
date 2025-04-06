@@ -1,0 +1,28 @@
+services:
+  mcpdev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../:/workspace:cached
+      - ~/.ssh:/root/.ssh:cached
+      - ~/gitconfig:/root/gitconfig:cached
+    working_dir: /workspace
+    entrypoint: ["tail", "-f", "/dev/null"]
+    ports:
+      - "5678:5678" # debugpy remote debugging
+      - "23001-23030:23001-23030" # MCP ports SSE ports
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    tty: true
+    # For Chinese users
+    environment:
+      TZ: Asia/Shanghai
+      LANG: zh_CN.UTF-8
+      LANGUAGE: zh_CN:zh
+      LC_ALL: zh_CN.UTF-8
+      no_proxy: "localhost,127.0.0.1"
+      NO_PROXY: "localhost,127.0.0.1"
+    # Add this line to disable VS Code auto-mounted volumes
+    # labels:
+    #   devcontainer.metadata: '{"customizations": {"vscode": {"remote.containers.mountWslDistro": false}}}'
