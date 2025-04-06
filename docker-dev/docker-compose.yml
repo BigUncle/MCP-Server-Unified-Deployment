@@ -1,8 +1,8 @@
 services:
   mcpdev:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker-dev/Dockerfile
     volumes:
       - ../:/workspace:cached
       - ~/.ssh:/root/.ssh:cached

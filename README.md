@@ -144,11 +144,78 @@ python scripts/manage_mcp.py start fetch
 │   └── mcp_servers.json     # Server configuration
 ├── logs/                    # Server logs
 ├── pids/                    # Process ID files
+|—— docker-dev/              # docker development environment
+│   ├── docker-compose.yml   # docker-compose.yml
+│   └── devcontainer.json    # devcontainer.json
+├── dockerfile/              # dockerfile
 ├── scripts/                 # Management scripts
 │   ├── manage_mcp.py        # Main management script
 │   └── mcp_manager/         # Management modules
 └── mcp-servers/             # Source code servers (if any)
 ```
+
+## Docker Development Environment
+
+### Overview
+
+This project supports Docker-based development environments, making it easy to set up and run MCP servers in a consistent environment across different platforms.
+
+### Prerequisites
+
+- Docker and Docker Compose installed on your system
+- VS Code with Remote - Containers extension (optional, for DevContainer support)
+
+### Getting Started with Docker
+
+1. Navigate to the project directory:
+
+```bash
+cd MCP-Server-Unified-Deployment
+```
+
+2. Start the Docker development environment:
+
+```bash
+# Important: Must be executed from the parent directory of `docker-dev` (`MCP-Server-Unified-Deployment`), otherwise errors will occur
+docker compose -f docker-dev/docker-compose.yml up -d
+```
+
+3. Connect to the running container:
+
+```bash
+docker exec -it docker-dev-mcpdev-1 zsh
+```
+
+### Key Concepts for Docker Configuration
+
+#### Build Context and Path References
+
+When working with Docker in this project, it's important to understand several key concepts:
+
+1. **Docker Build Context**: The build context determines which files can be accessed by the `COPY` instruction in the Dockerfile.
+
+   - In our configuration, the build context is set to the project root directory (`context: ..` in docker-compose.yml).
+   - This allows the Dockerfile to access files like `requirements.txt` directly.
+
+2. **Dockerfile Path References**: All paths in the Dockerfile are relative to the build context.
+
+   - Example: `COPY requirements.txt requirements.txt` copies from the project root.
+
+3. **Docker Compose Volume Mounts**: Paths in volume mounts are relative to the docker-compose.yml file location.
+
+   - Our configuration uses `- ../:/workspace:cached` to mount the entire project into the container.
+
+4. **DevContainer Configuration**: For VS Code users, the DevContainer configuration references paths relative to the devcontainer.json file.
+   - The configuration uses `"dockerComposeFile": "../docker-compose.yml"` to reference the compose file.
+
+### Troubleshooting Docker Path Issues
+
+If you encounter path-related issues when working with Docker:
+
+1. Verify the build context in docker-compose.yml is correctly set
+2. Ensure file paths in the Dockerfile are relative to the build context
+3. Check that volume mounts in docker-compose.yml use correct relative paths
+4. For DevContainer users, confirm that path references in devcontainer.json are correct
 
 ## Contributing
 
@@ -302,11 +369,78 @@ python scripts/manage_mcp.py start fetch
 │   └── mcp_servers.json     # 服务器配置
 ├── logs/                    # 服务器日志
 ├── pids/                    # 进程ID文件
+|—— docker-dev/              # docker开发环境
+│   ├── docker-compose.yml   # docker-compose.yml
+│   └── devcontainer.json    # devcontainer.json
+├── dockerfile/              # dockerfile
 ├── scripts/                 # 管理脚本
 │   ├── manage_mcp.py        # 主管理脚本
 │   └── mcp_manager/         # 管理模块
 └── mcp-servers/             # 源代码服务器（如果有）
 ```
+
+## Docker开发环境
+
+### 概述
+
+本项目支持基于Docker的开发环境，使在不同平台上设置和运行MCP服务器变得简单且一致。
+
+### 前提条件
+
+- 系统上已安装Docker和Docker Compose
+- VS Code及Remote - Containers扩展（可选，用于DevContainer支持）
+
+### Docker环境入门
+
+1. 导航到项目目录：
+
+```bash
+cd MCP-Server-Unified-Deployment
+```
+
+2. 启动Docker开发环境：
+
+```bash
+# 一定要在`docker-dev`父目录（`MCP-Server-Unified-Deployment`)目录下执行，否则会报错
+docker compose -f docker-dev/docker-compose.yml up -d
+```
+
+3. 连接到运行中的容器：
+
+```bash
+docker exec -it  docker-dev-mcpdev-1 zsh
+```
+
+### Docker配置关键概念
+
+#### 构建上下文和路径引用
+
+在本项目中使用Docker时，理解以下几个关键概念非常重要：
+
+1. **Docker构建上下文**：构建上下文决定了Dockerfile中的`COPY`指令可以访问哪些文件。
+
+   - 在我们的配置中，构建上下文设置为项目根目录（docker-compose.yml中的`context: ..`）。
+   - 这允许Dockerfile直接访问`requirements.txt`等文件。
+
+2. **Dockerfile路径引用**：Dockerfile中的所有路径都是相对于构建上下文的。
+
+   - 示例：`COPY requirements.txt requirements.txt`从项目根目录复制文件。
+
+3. **Docker Compose卷挂载**：卷挂载中的路径是相对于docker-compose.yml文件位置的。
+
+   - 我们的配置使用`- ../:/workspace:cached`将整个项目挂载到容器中。
+
+4. **DevContainer配置**：对于VS Code用户，DevContainer配置中的路径引用是相对于devcontainer.json文件的。
+   - 配置使用`"dockerComposeFile": "../docker-compose.yml"`来引用compose文件。
+
+### Docker路径问题排查
+
+如果在使用Docker时遇到路径相关问题：
+
+1. 验证docker-compose.yml中的构建上下文设置是否正确
+2. 确保Dockerfile中的文件路径是相对于构建上下文的
+3. 检查docker-compose.yml中的卷挂载是否使用了正确的相对路径
+4. 对于DevContainer用户，确认devcontainer.json中的路径引用是否正确
 
 ## 贡献
 

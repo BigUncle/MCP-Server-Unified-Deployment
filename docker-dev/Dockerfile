@@ -37,6 +37,8 @@ RUN echo 'ZSH_THEME="powerlevel10k/powerlevel10k"' >> ~/.zshrc
 # Install fonts
 RUN apt-get update && apt-get install -y fonts-powerline && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt requirements.txt
+
 # Install Python dependencies
 RUN if [ -f requirements.txt ]; then uv pip install -r requirements.txt --system; fi
 
