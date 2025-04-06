@@ -146,7 +146,8 @@ python scripts/manage_mcp.py start fetch
 ├── pids/                    # Process ID files
 |—— docker-dev/              # docker development environment
 │   ├── docker-compose.yml   # docker-compose.yml
-│   └── devcontainer.json    # devcontainer.json
+│   └── .devcontainer        # .devcontainer directory
+│       └─ devcontainer.json # devcontainer.json
 ├── dockerfile/              # dockerfile
 ├── scripts/                 # Management scripts
 │   ├── manage_mcp.py        # Main management script
@@ -371,7 +372,8 @@ python scripts/manage_mcp.py start fetch
 ├── pids/                    # 进程ID文件
 |—— docker-dev/              # docker开发环境
 │   ├── docker-compose.yml   # docker-compose.yml
-│   └── devcontainer.json    # devcontainer.json
+│   └── .devcontainer        # .devcontainer 目录
+│       └─ devcontainer.json # devcontainer.json
 ├── dockerfile/              # dockerfile
 ├── scripts/                 # 管理脚本
 │   ├── manage_mcp.py        # 主管理脚本
