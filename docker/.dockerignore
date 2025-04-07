@@ -1,0 +1,55 @@
+# Docker ignore file for MCP Server production build
+
+# Version control
+.git/
+.gitignore
+.github/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Development environments
+.idea/
+.vscode/
+*.sublime-*
+
+# Docker development files
+docker-dev/
+
+# Documentation
+docs/
+
+# Development configuration
+.pre-commit-config.yaml
+.trunk/
+
+# Local development files
+*.log
+*.sqlite3
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
