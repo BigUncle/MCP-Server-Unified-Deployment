@@ -116,7 +116,11 @@ def start_server(server):
             cmd = cmd.replace("{port}", str(server["port"]))
 
     # Create log file
-    log_file = open(LOG_DIR / f"{name}.log", "a")
+    log_file = open(LOG_DIR / f"{name}_{time.strftime('%Y%m%d%H%M%S')}.log", "a")
+
+    # 添加日志头信息
+    log_file.write(f"=== 服务启动 {time.ctime()} ===\n")
+    log_file.write(f"执行命令: {cmd}\n\n")
 
     # Print startup information for debugging
     print(f"Starting server '{name}' with command: {cmd}")
@@ -126,9 +130,7 @@ def start_server(server):
         # Bandit B602: shell=True is a security risk if cmd contains untrusted input.
         print(f"Start command: {cmd}")
 
-        process = subprocess.Popen(
-            cmd, shell=True, env=env, stdout=log_file, stderr=log_file
-        )
+        process = subprocess.Popen(cmd, shell=True, env=env, stdout=log_file, stderr=log_file)
         save_pid(name, process.pid)
         print(f"Server '{name}' started (PID: {process.pid})")
     except Exception as e:
@@ -166,18 +168,14 @@ def stop_server(server):
                 try:
                     # On Windows, use taskkill to kill process tree
                     if platform.system() == "Windows":
-                        subprocess.run(
-                            ["taskkill", "/F", "/T", "/PID", str(port_pid)], check=False
-                        )
+                        subprocess.run(["taskkill", "/F", "/T", "/PID", str(port_pid)], check=False)
                     else:
                         os.kill(port_pid, signal.SIGTERM)
                         # Give process some time to exit normally
                         time.sleep(1)
                         if is_running(port_pid):
                             os.kill(port_pid, signal.SIGKILL)
-                    print(
-                        f"Stopped server '{name}' running on port {port} (PID: {port_pid})"
-                    )
+                    print(f"Stopped server '{name}' running on port {port} (PID: {port_pid})")
                 except Exception as e:
                     print(f"Failed to stop process on port {port}: {e}")
             else:
@@ -321,7 +319,7 @@ def stop_all_servers():
 def main():
     if len(sys.argv) < 2:
         print("Usage: python manage_mcp.py <command> [server_name]")
-        print("Commands: start, stop, restart, status")
+        print("Commands: start, stop, restart, status, daemon")
         return
 
     command = sys.argv[1]
@@ -336,6 +334,61 @@ def main():
     if command == "start" and not server_name:
         # Start all enabled servers
         start_all_servers()
+        # Check if running in daemon mode (Docker container)
+        if os.environ.get("MCP_DAEMON_MODE", "false").lower() == "true":
+            print("Running in daemon mode, keeping process alive...")
+            try:
+                # Keep the process running and periodically check server status
+                while True:
+                    time.sleep(30)  # 缩短检测间隔到30秒
+
+                    # 新增健康检查逻辑
+                    for server in config["servers"]:
+                        if server.get("enabled", True):
+                            pid = load_pid(server["name"])
+                            port = server.get("sse_port", server.get("port"))
+
+                            # 双重检查：进程存在且端口监听
+                            if pid and is_running(pid) and port:
+                                if not is_port_in_use(port):
+                                    print(f"服务'{server['name']}'进程存在但端口{port}未监听，执行重启...")
+                                    stop_server(server)
+                                    start_server(server)
+                            elif pid and not is_running(pid):
+                                print(f"服务'{server['name']}'异常停止，执行重启...")
+                                start_server(server)
+            except KeyboardInterrupt:
+                print("Daemon mode interrupted, stopping all servers...")
+                stop_all_servers()
+        return
+
+    if command == "daemon":
+        # Explicit daemon mode command
+        print("Starting all servers in daemon mode...")
+        start_all_servers()
+        try:
+            # Keep the process running and periodically check server status
+            while True:
+                time.sleep(30)  # 缩短检测间隔到30秒
+
+                # 新增健康检查逻辑
+                for server in config["servers"]:
+                    if server.get("enabled", True):
+                        pid = load_pid(server["name"])
+                        port = server.get("sse_port", server.get("port"))
+
+                        # 双重检查：进程存在且端口监听
+                        if pid and is_running(pid) and port:
+                            if not is_port_in_use(port):
+                                print(f"服务'{server['name']}'进程存在但端口{port}未监听，执行重启...")
+                                stop_server(server)
+                                start_server(server)
+                        elif pid and not is_running(pid):
+                            print(f"服务'{server['name']}'异常停止，执行重启...")
+                            start_server(server)
+        except KeyboardInterrupt:
+            print("Daemon mode interrupted, stopping all servers...")
+            stop_all_servers()
         return
 
     if command == "stop" and not server_name:
