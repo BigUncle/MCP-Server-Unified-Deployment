@@ -11,7 +11,7 @@ services:
     entrypoint: ["tail", "-f", "/dev/null"]
     ports:
       - "5678:5678" # debugpy remote debugging
-      - "23001-23030:23001-23030" # MCP ports SSE ports
+      - "33001-33010:33001-33010" # MCP ports SSE ports
     extra_hosts:
       - "host.docker.internal:host-gateway"
     tty: true

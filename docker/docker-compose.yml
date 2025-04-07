@@ -1,0 +1,38 @@
+# Production docker-compose.yml for MCP Server Unified Deployment
+
+services:
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: mcp-server:latest
+    container_name: mcp-server
+    restart: unless-stopped
+    ports:
+      - "23001-23020:23001-23020" # MCP ports SSE ports
+    volumes:
+      - ../config:/app/config:ro
+      - ../logs:/app/logs
+      - ../pids:/app/pids
+    environment:
+      TZ: Asia/Shanghai
+      LANG: zh_CN.UTF-8
+      LANGUAGE: zh_CN:zh
+      LC_ALL: zh_CN.UTF-8
+      MCP_DAEMON_MODE: "true"
+    # Security: drop unnecessary privileges
+    security_opt:
+      - no-new-privileges:true
+    # Healthcheck to monitor application status
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.connect(('localhost', 23001)) if True else exit(1)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
