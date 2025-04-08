@@ -37,3 +37,4 @@ pids/
 .vscode/
 
 .roo/
+config/client_configs/
