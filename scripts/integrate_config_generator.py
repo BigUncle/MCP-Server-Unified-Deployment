@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-MCP 配置文件生成器
-根据mcp_servers.json配置文件生成不同客户端格式的配置文件
-支持的格式:
+MCP Configuration Generator
+Generate different client format configuration files based on mcp_servers.json
+Supported formats:
 - Cline
 - Roo Code
 - Cherry Studio
@@ -17,18 +17,18 @@ import string
 import time
 from pathlib import Path
 
-# 从上级目录导入config模块
+# Import config module from parent directory
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mcp_manager.config import load_config
 
-# 配置文件输出目录
+# Configuration file output directory
 CONFIG_OUTPUT_DIR = Path(__file__).parent.parent / "config" / "client_configs"
 
-# 确保输出目录存在
+# Ensure output directory exists
 CONFIG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# 不同客户端的默认配置
+# Default configurations for different clients
 CLIENT_DEFAULTS = {
     "cline": {
         "timeout": 60,
@@ -44,7 +44,7 @@ CLIENT_DEFAULTS = {
     }
 }
 
-# 不同服务器的默认函数授权列表
+# Default function authorization lists for different servers
 DEFAULT_ALLOWED_FUNCTIONS = {
     "filesystem": [
         "read_file", "read_multiple_files", "write_file", "edit_file",
@@ -78,26 +78,26 @@ DEFAULT_ALLOWED_FUNCTIONS = {
 }
 
 def generate_random_id(length=20):
-    """生成随机ID，用于Cherry Studio配置"""
+    """Generate random ID for Cherry Studio configuration"""
     chars = string.ascii_letters + string.digits
     return ''.join(random.choice(chars) for _ in range(length))
 
 def get_server_ip_port(server_config):
-    """从服务器配置中提取IP和端口"""
+    """Extract IP and port from server configuration"""
     host = server_config.get("sse_host", "127.0.0.1")
-    # 如果sse_host是0.0.0.0，使用127.0.0.1作为客户端连接地址
+    # If sse_host is 0.0.0.0, use 127.0.0.1 as client connection address
     if host == "0.0.0.0":
         host = "127.0.0.1"
     port = server_config.get("sse_port", "3000")
     return host, port
 
 def generate_cline_config(servers_config):
-    """生成Cline格式的配置文件"""
+    """Generate Cline format configuration file"""
     config = {"mcpServers": {}}
     
     for server in servers_config["servers"]:
         if not server.get("enabled", True):
-            # 如果服务器被禁用，则设置disabled标志
+            # If server is disabled, set disabled flag
             config["mcpServers"][server["name"]] = {
                 "disabled": True
             }
@@ -112,7 +112,7 @@ def generate_cline_config(servers_config):
             "transportType": "sse"
         }
         
-        # 添加自动允许的函数列表
+        # Add auto-approved function list
         if server["name"] in DEFAULT_ALLOWED_FUNCTIONS:
             server_config["autoApprove"] = DEFAULT_ALLOWED_FUNCTIONS[server["name"]]
         
@@ -121,12 +121,12 @@ def generate_cline_config(servers_config):
     return config
 
 def generate_roo_code_config(servers_config):
-    """生成Roo Code格式的配置文件"""
+    """Generate Roo Code format configuration file"""
     config = {"mcpServers": {}}
     
     for server in servers_config["servers"]:
         if not server.get("enabled", True):
-            # 如果服务器被禁用，则设置disabled标志
+            # If server is disabled, set disabled flag
             config["mcpServers"][server["name"]] = {
                 "url": "",
                 "disabled": True,
@@ -141,7 +141,7 @@ def generate_roo_code_config(servers_config):
             "url": url
         }
         
-        # 添加自动允许的函数列表，在Roo Code中叫做alwaysAllow
+        # Add auto-approved function list, called alwaysAllow in Roo Code
         if server["name"] in DEFAULT_ALLOWED_FUNCTIONS:
             server_config["alwaysAllow"] = DEFAULT_ALLOWED_FUNCTIONS[server["name"]]
         
@@ -150,10 +150,10 @@ def generate_roo_code_config(servers_config):
     return config
 
 def generate_cherry_studio_config(servers_config):
-    """生成Cherry Studio格式的配置文件"""
+    """Generate Cherry Studio format configuration file"""
     config = {"mcpServers": {}}
     
-    # 增加一个mcp-auto-install条目
+    # Add an mcp-auto-install entry
     config["mcpServers"]["cPqOEdSHLwBLnukhxTppp"] = {
         "isActive": True,
         "name": "mcp-auto-install",
@@ -168,7 +168,7 @@ def generate_cherry_studio_config(servers_config):
     for server in servers_config["servers"]:
         server_id = generate_random_id()
         
-        # 如果服务器被禁用，则设置isActive为false
+        # If server is disabled, set isActive to false
         isActive = server.get("enabled", True)
         
         host, port = get_server_ip_port(server)
@@ -186,31 +186,31 @@ def generate_cherry_studio_config(servers_config):
     return config
 
 def save_config_to_file(config, filename):
-    """保存配置到文件"""
+    """Save configuration to file"""
     file_path = CONFIG_OUTPUT_DIR / filename
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
     return file_path
 
 def generate_all_configs():
-    """生成所有客户端配置文件"""
-    # 加载服务器配置
+    """Generate all client configuration files"""
+    # Load server configuration
     servers_config = load_config()
     
-    # 生成各种格式的配置
+    # Generate different format configurations
     cline_config = generate_cline_config(servers_config)
     roo_code_config = generate_roo_code_config(servers_config)
     cherry_studio_config = generate_cherry_studio_config(servers_config)
     
-    # 生成带时间戳的文件名
+    # Generate filenames with timestamp
     timestamp = time.strftime("%Y%m%d%H%M%S")
     
-    # 保存配置文件
+    # Save configuration files
     cline_path = save_config_to_file(cline_config, f"mcp_cline_{timestamp}.json")
     roo_code_path = save_config_to_file(roo_code_config, f"mcp_roo_code_{timestamp}.json")
     cherry_studio_path = save_config_to_file(cherry_studio_config, f"mcp_cherry_studio_{timestamp}.json")
     
-    # 同时保存一份最新的配置（不带时间戳）
+    # Also save a copy of the latest configuration (without timestamp)
     latest_cline_path = save_config_to_file(cline_config, "mcp_cline_latest.json")
     latest_roo_code_path = save_config_to_file(roo_code_config, "mcp_roo_code_latest.json")
     latest_cherry_studio_path = save_config_to_file(cherry_studio_config, "mcp_cherry_studio_latest.json")
@@ -227,9 +227,9 @@ def generate_all_configs():
     }
 
 if __name__ == "__main__":
-    """命令行执行时直接生成所有配置文件"""
+    """Generate all configuration files when executed from command line"""
     result = generate_all_configs()
-    print("生成客户端配置文件完成:")
+    print("Client configuration files generation completed:")
     for client_type, path in result.items():
         if client_type != "latest":
             print(f"- {client_type}: {path}")
