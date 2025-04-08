@@ -8,6 +8,7 @@ Supported formats:
 - Cline
 - Roo Code
 - Cherry Studio
+- GitHub Copilot
 """
 
 import json
@@ -41,6 +42,9 @@ CLIENT_DEFAULTS = {
     "cherry_studio": {
         "isActive": True,
         "description": ""
+    },
+    "github_copilot": {
+        "type": "sse"
     }
 }
 
@@ -185,6 +189,26 @@ def generate_cherry_studio_config(servers_config):
     
     return config
 
+def generate_github_copilot_config(servers_config):
+    """Generate GitHub Copilot format configuration file"""
+    config = {"mcpServers": {}}
+    
+    for server in servers_config["servers"]:
+        if not server.get("enabled", True):
+            continue
+        
+        host, port = get_server_ip_port(server)
+        url = f"http://{host}:{port}/sse"
+        
+        server_config = {
+            "type": "sse",
+            "url": url
+        }
+        
+        config["mcpServers"][server["name"]] = server_config
+    
+    return config
+
 def save_config_to_file(config, filename):
     """Save configuration to file"""
     file_path = CONFIG_OUTPUT_DIR / filename
@@ -201,6 +225,7 @@ def generate_all_configs():
     cline_config = generate_cline_config(servers_config)
     roo_code_config = generate_roo_code_config(servers_config)
     cherry_studio_config = generate_cherry_studio_config(servers_config)
+    github_copilot_config = generate_github_copilot_config(servers_config)
     
     # Generate filenames with timestamp
     timestamp = time.strftime("%Y%m%d%H%M%S")
@@ -209,20 +234,24 @@ def generate_all_configs():
     cline_path = save_config_to_file(cline_config, f"mcp_cline_{timestamp}.json")
     roo_code_path = save_config_to_file(roo_code_config, f"mcp_roo_code_{timestamp}.json")
     cherry_studio_path = save_config_to_file(cherry_studio_config, f"mcp_cherry_studio_{timestamp}.json")
+    github_copilot_path = save_config_to_file(github_copilot_config, f"mcp_github_copilot_{timestamp}.json")
     
     # Also save a copy of the latest configuration (without timestamp)
     latest_cline_path = save_config_to_file(cline_config, "mcp_cline_latest.json")
     latest_roo_code_path = save_config_to_file(roo_code_config, "mcp_roo_code_latest.json")
     latest_cherry_studio_path = save_config_to_file(cherry_studio_config, "mcp_cherry_studio_latest.json")
+    latest_github_copilot_path = save_config_to_file(github_copilot_config, "mcp_github_copilot_latest.json")
     
     return {
         "cline": str(cline_path),
         "roo_code": str(roo_code_path),
         "cherry_studio": str(cherry_studio_path),
+        "github_copilot": str(github_copilot_path),
         "latest": {
             "cline": str(latest_cline_path),
             "roo_code": str(latest_roo_code_path),
-            "cherry_studio": str(latest_cherry_studio_path)
+            "cherry_studio": str(latest_cherry_studio_path),
+            "github_copilot": str(latest_github_copilot_path)
         }
     }
 
