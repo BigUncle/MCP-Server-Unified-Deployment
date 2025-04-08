@@ -15,7 +15,7 @@
         "ms-toolsai.jupyter",
         "ms-azuretools.vscode-docker",
         "GitHub.copilot",
-        "GitHub.copilot-chat",
+        "GitHub.copilot-chat@release",
         "github.vscode-github-actions",
         "rooveterinaryinc.roo-cline",
         "formulahendry.code-runner",
@@ -27,17 +27,17 @@
         "aminer.codegeex"
       ],
       "settings": {
-"python.defaultInterpreterPath": "/usr/local/bin/python",
-"python.linting.enabled": true,
-// using the default terminal in the container
-"terminal.integrated.defaultProfile.linux": "zsh",
-"terminal.integrated.profiles.linux": {
-  "zsh": {
-    "path": "/usr/bin/zsh"
-  }
-}
-// "remote.containers.enableWSLg": false,
-// "remote.containers.mountWslDistro": false
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        // using the default terminal in the container
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/usr/bin/zsh"
+          }
+        }
+        // "remote.containers.enableWSLg": false,
+        // "remote.containers.mountWslDistro": false
       }
     }
   },
