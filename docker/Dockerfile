@@ -30,16 +30,12 @@ RUN pipx ensurepath && \
     . /root/.bashrc
 
 # Install uvx (uv extension commands) and verify it's available
-<<<<<<< HEAD
-RUN pip install --no-cache-dir uvx && \
-=======
 ##############################################################################
 # DO NOT USE `pip install uvx`, AS IT WILL INSTALL ANOTHER UV PACKAGE,
 # WHICH ISN A DEPRECATED PACKAGE(https://pypi.org/project/uvx/), NOT WHATT WE WANT
 # THE ACTUAL UVX PACKAGE WE WANT TO USE IS AT: https://pypi.org/project/uv/
 ##############################################################################
 RUN pip install --no-cache-dir uv && \
->>>>>>> docker-deployment-0408
     ln -sf $(which uvx) /usr/local/bin/uvx && \
     which uvx || echo "uvx installation failed"
 
@@ -83,9 +79,6 @@ RUN pip install --no-cache-dir pipx && \
     ln -sf /root/.local/bin/mcp-proxy /usr/local/bin/mcp-proxy
 
 # Install uvx in the final image and verify it works
-<<<<<<< HEAD
-RUN pip install --no-cache-dir uvx uv && \
-=======
 ##############################################################################
 # DO NOT USE `pip install uvx`, AS IT WILL INSTALL ANOTHER UV PACKAGE,
 # WHICH ISN A DEPRECATED PACKAGE(https://pypi.org/project/uvx/), NOT WHATT WE WANT
@@ -93,7 +86,6 @@ RUN pip install --no-cache-dir uvx uv && \
 ##############################################################################
 
 RUN pip install --no-cache-dir uv && \
->>>>>>> docker-deployment-0408
     ln -sf $(which uvx) /usr/local/bin/uvx && \
     uvx --help && \
     which uvx || echo "uvx installation failed"
