@@ -18,12 +18,8 @@ import string
 import time
 from pathlib import Path
 
-# Import config module from parent directory
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from mcp_manager.config import load_config
-
-# Configuration file output directory
+# Configuration file paths
+CONFIG_FILE = Path(__file__).parent.parent / "config" / "mcp_servers.json"
 CONFIG_OUTPUT_DIR = Path(__file__).parent.parent / "config" / "client_configs"
 
 # Ensure output directory exists
@@ -33,12 +29,9 @@ CONFIG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 CLIENT_DEFAULTS = {
     "cline": {
         "timeout": 60,
-        "transportType": "sse",
-        "autoApprove": []
+        "transportType": "sse"
     },
-    "roo_code": {
-        "alwaysAllow": []
-    },
+    "roo_code": {},
     "cherry_studio": {
         "isActive": True,
         "description": ""
@@ -48,38 +41,14 @@ CLIENT_DEFAULTS = {
     }
 }
 
-# Default function authorization lists for different servers
-DEFAULT_ALLOWED_FUNCTIONS = {
-    "filesystem": [
-        "read_file", "read_multiple_files", "write_file", "edit_file",
-        "create_directory", "list_directory", "directory_tree", "move_file",
-        "search_files", "get_file_info", "list_allowed_directories"
-    ],
-    "github": [
-        "create_or_update_file", "search_repositories", "create_repository",
-        "get_file_contents", "push_files", "create_issue", "create_pull_request",
-        "fork_repository", "create_branch", "list_commits", "list_issues", 
-        "update_issue", "add_issue_comment", "search_code", "search_issues",
-        "search_users", "get_issue", "get_pull_request", "list_pull_requests",
-        "create_pull_request_review", "merge_pull_request", "get_pull_request_files",
-        "get_pull_request_status", "update_pull_request_branch", "get_pull_request_comments",
-        "get_pull_request_reviews"
-    ],
-    "firecrawl": [
-        "firecrawl_scrape", "firecrawl_map", "firecrawl_crawl", "firecrawl_batch_scrape",
-        "firecrawl_check_batch_status", "firecrawl_check_crawl_status", "firecrawl_search",
-        "firecrawl_extract", "firecrawl_deep_research", "firecrawl_generate_llmstxt"
-    ],
-    "duckduckgo": [
-        "search", "fetch_content"
-    ],
-    "amap": [
-        "search", "fetch_content", "maps_regeocode", "maps_geo", "maps_ip_location",
-        "maps_weather", "maps_search_detail", "maps_bicycling", "maps_direction_walking",
-        "maps_direction_driving", "maps_direction_transit_integrated", "maps_distance",
-        "maps_text_search", "maps_around_search"
-    ]
-}
+def load_config():
+    """Load MCP server configuration"""
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Failed to load configuration file: {e}")
+        return None
 
 def generate_random_id(length=20):
     """Generate random ID for Cherry Studio configuration"""
@@ -116,9 +85,13 @@ def generate_cline_config(servers_config):
             "transportType": "sse"
         }
         
-        # Add auto-approved function list
-        if server["name"] in DEFAULT_ALLOWED_FUNCTIONS:
-            server_config["autoApprove"] = DEFAULT_ALLOWED_FUNCTIONS[server["name"]]
+        # Add auto-approved function list from server configuration
+        if "autoApprove" in server:
+            if server["autoApprove"] == "*":
+                # For now, just include an empty list for "*" - could be enhanced to fetch all available functions
+                server_config["autoApprove"] = []
+            else:
+                server_config["autoApprove"] = server["autoApprove"]
         
         config["mcpServers"][server["name"]] = server_config
     
@@ -145,9 +118,13 @@ def generate_roo_code_config(servers_config):
             "url": url
         }
         
-        # Add auto-approved function list, called alwaysAllow in Roo Code
-        if server["name"] in DEFAULT_ALLOWED_FUNCTIONS:
-            server_config["alwaysAllow"] = DEFAULT_ALLOWED_FUNCTIONS[server["name"]]
+        # Add auto-approved function list from server configuration (renamed to alwaysAllow for Roo Code)
+        if "autoApprove" in server:
+            if server["autoApprove"] == "*":
+                # For now, just include an empty list for "*" - could be enhanced to fetch all available functions
+                server_config["alwaysAllow"] = []
+            else:
+                server_config["alwaysAllow"] = server["autoApprove"]
         
         config["mcpServers"][server["name"]] = server_config
     
@@ -191,7 +168,7 @@ def generate_cherry_studio_config(servers_config):
 
 def generate_github_copilot_config(servers_config):
     """Generate GitHub Copilot format configuration file"""
-    config = {"mcpServers": {}}
+    config = {"mcp": {"servers": {}}}
     
     for server in servers_config["servers"]:
         if not server.get("enabled", True):
@@ -200,12 +177,24 @@ def generate_github_copilot_config(servers_config):
         host, port = get_server_ip_port(server)
         url = f"http://{host}:{port}/sse"
         
+        # Get server type from config, default to "sse" if not specified
+        server_type = server.get("transport_type", "sse")
+        
         server_config = {
-            "type": "sse",
+            "type": server_type,
             "url": url
         }
         
-        config["mcpServers"][server["name"]] = server_config
+        # GitHub Copilot format doesn't include autoApprove field
+        # Uncomment this block if autoApprove field in GitHub Copilot was released
+        # if "autoApprove" in server:
+        #     if server["autoApprove"] == "*":
+        #         # For "*", don't include the autoApprove field as this means "allow all"
+        #         pass
+        #     else:
+        #         server_config["autoApprove"] = server["autoApprove"]
+        
+        config["mcp"]["servers"][server["name"]] = server_config
     
     return config
 
@@ -220,6 +209,9 @@ def generate_all_configs():
     """Generate all client configuration files"""
     # Load server configuration
     servers_config = load_config()
+    if not servers_config:
+        print("Failed to load server configuration")
+        return None
     
     # Generate different format configurations
     cline_config = generate_cline_config(servers_config)
@@ -258,7 +250,13 @@ def generate_all_configs():
 if __name__ == "__main__":
     """Generate all configuration files when executed from command line"""
     result = generate_all_configs()
-    print("Client configuration files generation completed:")
-    for client_type, path in result.items():
-        if client_type != "latest":
+    if result:
+        print("Client configuration files generation completed:")
+        for client_type, path in result.items():
+            if client_type != "latest":
+                print(f"- {client_type}: {path}")
+        print("\nLatest configuration files:")
+        for client_type, path in result["latest"].items():
             print(f"- {client_type}: {path}")
+    else:
+        print("Failed to generate client configuration files")
