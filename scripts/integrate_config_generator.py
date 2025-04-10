@@ -54,21 +54,21 @@ def generate_cline_config(servers_config):
     config = {"mcpServers": {}}
     
     for server in servers_config["servers"]:
-        if not server.get("enabled", True):
-            # If server is disabled, set disabled flag
-            config["mcpServers"][server["name"]] = {
-                "disabled": True
-            }
-            continue
-        
         host, port = get_server_ip_port(server)
         url = f"http://{host}:{port}/sse"
-        
         server_config = {
+            "disabled": False,
             "timeout": 60,
             "url": url,
             "transportType": "sse"
         }
+        if not server.get("enabled", True):
+            # If server is disabled, set disabled flag
+            server_config.update({
+                "disabled": True
+            })
+            config["mcpServers"][server["name"]] = server_config
+            continue
         
         # Add auto-approved function list from server configuration
         if "autoApprove" in server:
