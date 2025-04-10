@@ -11,15 +11,32 @@ services:
     ports:
       - "23001-23020:23001-23020" # MCP ports SSE ports
     volumes:
-      - ../config:/app/config:ro
+      - ../config:/app/config    # Removed `:ro` to allow writing config files
       - ../logs:/app/logs
       - ../pids:/app/pids
+      - ../scripts:/app/scripts
+      - ./container_startup.py:/app/container_startup.py
     environment:
       TZ: Asia/Shanghai
       LANG: zh_CN.UTF-8
       LANGUAGE: zh_CN:zh
       LC_ALL: zh_CN.UTF-8
       MCP_DAEMON_MODE: "true"
+      # Host resolution configuration
+      # Uses special Docker DNS name to access host machine from container
+      # This address may vary based on Docker environment (Docker Desktop, Docker Engine, etc.)
+      EXTERNAL_HOST: "host.docker.internal"
+      # Explicitly set the real host IP for external client access
+      # Replace with your actual host machine IP on the network
+      REAL_HOST_IP: "192.168.1.8"
+
+    # Modified entrypoint to ensure container keeps running:
+    # 1. Run initialization script
+    # 2. Start MCP servers
+    # 3. Generate configuration
+    # 4. Monitor log files to keep container running
+    entrypoint: ["/bin/bash", "-c", "python /app/container_startup.py && python /app/scripts/manage_mcp.py start && python /app/scripts/integrate_config_generator.py && tail -f /app/logs/*.log || tail -f /dev/null"]
+
     # Security: drop unnecessary privileges
     security_opt:
       - no-new-privileges:true

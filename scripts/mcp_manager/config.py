@@ -76,3 +76,65 @@ def save_config(config):
         print(f"Configuration updated and saved to {CONFIG_FILE}")
     except IOError:
         print(f"Error: Cannot write to configuration file {CONFIG_FILE}")
+
+
+def get_server_ip_port(server_config):
+    """
+    Extract IP and port from server configuration
+    
+    This function handles address resolution for containerized environments:
+    - If host is bound to 0.0.0.0 (all interfaces), it substitutes with an externally accessible address
+    - It prioritizes REAL_HOST_IP over EXTERNAL_HOST to ensure external clients can connect
+    - Performs basic validation of the host address
+    
+    Args:
+        server_config: Dictionary containing server configuration
+        
+    Returns:
+        tuple: (host, port) containing the resolved address and port number
+    """
+    host = server_config.get("sse_host", "127.0.0.1")
+    
+    # If sse_host is 0.0.0.0, we need to return a host that is accessible from outside
+    if host == "0.0.0.0":
+        # Try to get the external host from environment variables
+        import os
+        import socket
+        
+        # Try to get the real host IP first (highest priority)
+        real_host_ip = os.environ.get("REAL_HOST_IP")
+        if real_host_ip:
+            host = real_host_ip
+        else:
+            # Fall back to EXTERNAL_HOST
+            external_host = os.environ.get("EXTERNAL_HOST")
+            
+            if external_host:
+                # Use the configured external host
+                host = external_host
+            else:
+                # Try common Docker host names if no environment variables are set
+                host = socket.gethostbyname(socket.gethostname())
+                # Try to get the machine's actual IP address
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    s.connect(("8.8.8.8", 80))
+                    host = s.getsockname()[0]
+                    s.close()
+                except:
+                    pass
+                docker_hosts = ["host.docker.internal", "host.lima.internal"]
+                for docker_host in docker_hosts:
+                    try:
+                        socket.gethostbyname(docker_host)
+                        host = docker_host
+                        break
+                    except socket.gaierror:
+                        continue
+                        
+                # If no Docker host is resolvable, fall back to localhost
+                if host == "0.0.0.0":
+                    host = "localhost"
+    
+    port = server_config.get("sse_port", 23001)
+    return host, port

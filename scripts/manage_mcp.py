@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 import psutil
-
+from mcp_manager.config import get_server_ip_port
 # Configuration file paths
 CONFIG_FILE = Path(__file__).parent.parent / "config" / "mcp_servers.json"
 PID_DIR = Path(__file__).parent.parent / "pids"
@@ -196,10 +196,14 @@ def server_status(server):
     name = server["name"]
     enabled = server.get("enabled", True)
     server_type = server.get("type", "unknown")
-    host = server.get("host", "localhost")
     port = server.get("sse_port", server.get("port", "N/A"))
-    # path = server.get("path", "unknown")
-    url = f"http://{host}:{port}/sse"
+
+    # Fix dynamic host and url retrieval logic
+    resolved_host, _ = get_server_ip_port(server)
+    # sse_host = server.get("sse_host", "localhost")
+    
+    # Use resolved_host rather than the original host to ensure the URL uses a valid address
+    url = f"http://{resolved_host}:{port}/sse"
 
     # Check PID file
     pid = load_pid(name)

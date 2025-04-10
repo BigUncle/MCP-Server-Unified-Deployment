@@ -18,6 +18,9 @@ import string
 import time
 from pathlib import Path
 
+# Import functions from config.py to avoid duplication
+from mcp_manager.config import load_config, get_server_ip_port
+
 # Configuration file paths
 CONFIG_FILE = Path(__file__).parent.parent / "config" / "mcp_servers.json"
 CONFIG_OUTPUT_DIR = Path(__file__).parent.parent / "config" / "client_configs"
@@ -41,28 +44,10 @@ CLIENT_DEFAULTS = {
     }
 }
 
-def load_config():
-    """Load MCP server configuration"""
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Failed to load configuration file: {e}")
-        return None
-
 def generate_random_id(length=20):
     """Generate random ID for Cherry Studio configuration"""
     chars = string.ascii_letters + string.digits
     return ''.join(random.choice(chars) for _ in range(length))
-
-def get_server_ip_port(server_config):
-    """Extract IP and port from server configuration"""
-    host = server_config.get("sse_host", "127.0.0.1")
-    # If sse_host is 0.0.0.0, use 127.0.0.1 as client connection address
-    if host == "0.0.0.0":
-        host = "127.0.0.1"
-    port = server_config.get("sse_port", "3000")
-    return host, port
 
 def generate_cline_config(servers_config):
     """Generate Cline format configuration file"""
@@ -105,9 +90,8 @@ def generate_roo_code_config(servers_config):
         if not server.get("enabled", True):
             # If server is disabled, set disabled flag
             config["mcpServers"][server["name"]] = {
-                "url": "",
                 "disabled": True,
-                "alwaysAllow": []
+                # "alwaysAllow": []
             }
             continue
         

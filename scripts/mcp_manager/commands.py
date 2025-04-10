@@ -262,6 +262,9 @@ def stop_server(server_config: dict):
 def status_servers():
     """Display the status of all configured servers"""
     print("\n--- MCP Server Status ---")
+    # Import get_server_ip_port here to avoid circular imports
+    from .config import load_config, get_server_ip_port
+    
     config = load_config()
     servers = config.get("servers", [])
 
@@ -270,7 +273,7 @@ def status_servers():
         return
 
     print(
-        f"{'Name':<20} {'Enabled':<7} {'Type':<12} {'Port':<6} {'Status':<25} {'PID (This Instance)':<15} {'Path'}"
+        f"{'Name':<20} {'Enabled':<10} {'Type':<15} {'Port':<10} {'Status':<30} {'PID (This Instance)':<20} {'Url'}"
     )
     print("-" * 100)  # Adjust separator line length
 
@@ -290,6 +293,20 @@ def status_servers():
         status = "Unknown"
         pid_str = "N/A"
 
+        # Get resolved host and port using get_server_ip_port function
+        resolved_host, resolved_port = get_server_ip_port(server)
+        # If port is explicitly set in the server config, use that instead of the resolved port
+        if port:
+            resolved_port = port
+            
+        # Generate URL with resolved host instead of using raw sse_host from config
+        # sse_host = server.get("sse_host", "localhost")
+        # if sse_host == "0.0.0.0":
+        #     url = f"http://{host}:{resolved_port}/sse"
+        # else:
+        #     url = f"http://{sse_host}:{resolved_port}/sse"
+        url = f"http://{resolved_host}:{port}/sse"
+
         if enabled == "True":
             if port:
                 port_int = int(port)
@@ -299,7 +316,7 @@ def status_servers():
                     if name in RUNNING_PROCESSES:
                         pid_str = str(RUNNING_PROCESSES[name].pid)
                     else:
-                        pid_str = "(External start?)"
+                        pid_str = "(External start)"
                 else:
                     status = "Stopped"
                     # If there's a record in this instance but the port is not listening, it may have failed to start or crashed
@@ -323,7 +340,7 @@ def status_servers():
             status = "Disabled"
 
         print(
-            f"{name:<20} {enabled:<7} {stype:<12} {str(port):<6} {status:<25} {pid_str:<15} {path}"
+            f"{name:<20} {enabled:<10} {stype:<15} {str(port):<10} {status:<30} {pid_str:<20} {url}"
         )
 
 
