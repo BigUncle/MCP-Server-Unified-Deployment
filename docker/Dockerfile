@@ -56,6 +56,8 @@ RUN pipx install mcp-proxy && \
 
 # Copy requirements
 COPY requirements.txt requirements.txt
+# 判断 requirements.txt 文件是否已经成功复制过去
+RUN if [ -f requirements.txt ]; then echo "requirements.txt copied successfully"; else echo "requirements.txt not found"; fi
 
 # Install Python dependencies
 # RUN if [ -f requirements.txt ]; then uv pip install -r requirements.txt --system; fi
@@ -90,12 +92,14 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pipx and mcp-proxy in the final image
-# 安装 Node.js 22.x（官方推荐脚本，适配 Debian/Ubuntu）
+
+# Install Node.js 22.x (official recommended script, adapted for Debian/Ubuntu)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get update && \
     apt-get install -y nodejs && \
     node --version && npm --version && npx --version
+
+# Install pipx and mcp-proxy in the final image
 RUN pip install --no-cache-dir pipx && \
     pipx ensurepath && \
     pipx install mcp-proxy && \
@@ -114,10 +118,18 @@ RUN pip install --no-cache-dir uv && \
     which uvx || echo "uvx installation failed"
 
 # Set locale if needed
-# RUN echo "zh_CN.UTF-8 UTF-8" > /etc/locale.gen && locale-gen zh_CN.UTF-8 && update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh LC_ALL=zh_CN.UTF-8
-# ENV LANG=zh_CN.UTF-8 \
-#     LANGUAGE=zh_CN:zh \
-#     LC_ALL=zh_CN.UTF-8
+RUN echo "zh_CN.UTF-8 UTF-8" > /etc/locale.gen && locale-gen zh_CN.UTF-8 && update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh LC_ALL=zh_CN.UTF-8
+ENV LANG=zh_CN.UTF-8 \
+    LANGUAGE=zh_CN:zh \
+    LC_ALL=zh_CN.UTF-8
+# Copy requirements
+COPY requirements.txt requirements.txt
+# 判断 requirements.txt 文件是否已经成功复制过去
+RUN if [ -f requirements.txt ]; then echo "requirements.txt copied successfully"; else echo "requirements.txt not found"; fi
+
+# Install Python dependencies
+# RUN if [ -f requirements.txt ]; then uv pip install -r requirements.txt --system; fi
+RUN uv pip install -r requirements.txt --system
 
 # Verify required dependencies are installed
 RUN pip list | grep psutil || pip install --no-cache-dir psutil>=5.9.0

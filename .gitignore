@@ -18,7 +18,7 @@ env/
 
 
 # Config files
-config/*.json
+config/
 backup/
 !mcp_servers.example.json
 !mcp_cline_settings_for_Cline_and_RooCode.json
@@ -38,3 +38,5 @@ pids/
 
 .roo/
 config/client_configs/
+mcp-data/
+npm-global/

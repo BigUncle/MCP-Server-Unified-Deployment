@@ -16,6 +16,12 @@ services:
       - ../pids:/app/pids
       - ../scripts:/app/scripts
       - ./container_startup.py:/app/container_startup.py
+      # 新增持久化目录
+      - ../mcp-data:/app/mcp-data     # MCP服务器数据持久化
+      - ../npm-global:/root/.npm      # NPM全局包安装持久化
+      - ../mcp-servers:/app/mcp-servers  # MCP服务器源代码持久化
+      - ../uvx-global:/root/.uvx      # UVX全局安装持久化
+      - ../node-modules:/app/node_modules # Node模块持久化
     environment:
       TZ: Asia/Shanghai
       LANG: zh_CN.UTF-8
@@ -29,13 +35,18 @@ services:
       # Explicitly set the real host IP for external client access
       # Replace with your actual host machine IP on the network
       REAL_HOST_IP: "192.168.1.8"
+      # 新增环境变量
+      MCP_DATA_DIR: "/app/mcp-data"
+      NPM_CONFIG_PREFIX: "/root/.npm"
+      NODE_PATH: "/app/node_modules"
 
     # Modified entrypoint to ensure container keeps running:
     # 1. Run initialization script
-    # 2. Start MCP servers
-    # 3. Generate configuration
-    # 4. Monitor log files to keep container running
-    entrypoint: ["/bin/bash", "-c", "python /app/container_startup.py && python /app/scripts/manage_mcp.py start && python /app/scripts/integrate_config_generator.py && tail -f /app/logs/*.log || tail -f /dev/null"]
+    # 2. Wait for installation to complete
+    # 3. Start MCP servers
+    # 4. Generate configuration
+    # 5. Monitor log files to keep container running
+    entrypoint: ["/bin/bash", "-c", "python /app/container_startup.py && python /app/scripts/wait_for_installation.py && python /app/scripts/manage_mcp.py start && python /app/scripts/integrate_config_generator.py && tail -f /app/logs/*.log || tail -f /dev/null"]
 
     # Security: drop unnecessary privileges
     security_opt:
