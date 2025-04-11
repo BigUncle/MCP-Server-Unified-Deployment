@@ -15,7 +15,6 @@ services:
       - ../logs:/app/logs
       - ../pids:/app/pids
       - ../scripts:/app/scripts
-      - ./container_startup.py:/app/container_startup.py
       # 新增持久化目录
       - ../mcp-data:/app/mcp-data     # MCP服务器数据持久化
       - ../npm-global:/root/.npm      # NPM全局包安装持久化
@@ -46,7 +45,14 @@ services:
     # 3. Start MCP servers
     # 4. Generate configuration
     # 5. Monitor log files to keep container running
-    entrypoint: ["/bin/bash", "-c", "python /app/container_startup.py && python /app/scripts/wait_for_installation.py && python /app/scripts/manage_mcp.py start && python /app/scripts/integrate_config_generator.py && tail -f /app/logs/*.log || tail -f /dev/null"]
+    entrypoint: 
+      - /bin/bash
+      - -c
+      - |-
+        python /app/scripts/container_startup.py &&
+        python /app/scripts/manage_mcp.py start &&
+        python /app/scripts/integrate_config_generator.py &&
+        tail -f /app/logs/*.log || tail -f /dev/null
 
     # Security: drop unnecessary privileges
     security_opt:

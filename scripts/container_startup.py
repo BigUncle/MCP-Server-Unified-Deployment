@@ -19,6 +19,7 @@ import subprocess
 import time
 import logging
 import stat
+import shutil
 import importlib.util
 
 # Configure logging
@@ -149,7 +150,12 @@ def check_mcp_config():
     """Check if MCP server configuration file exists and is valid"""
     if not CONFIG_FILE.exists():
         logger.error(f"MCP server configuration file not found: {CONFIG_FILE}")
-        return False
+        logger.info("Please copy the example configuration file and modify it as needed:")
+        logger.info(f"cp {CONFIG_FILE.parent / 'mcp_servers.example.json'} {CONFIG_FILE}")
+        # Copy example config file if it exists
+        example_config = CONFIG_DIR / 'mcp_servers.example.json'
+        shutil.copy(example_config, CONFIG_FILE)
+        logger.info(f"Copied example configuration to {CONFIG_FILE}")
         
     try:
         with open(CONFIG_FILE, 'r') as f:

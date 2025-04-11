@@ -139,7 +139,9 @@ RUN node --version && npm --version && npx --version && python3 --version || (ec
 RUN mkdir -p /app/logs /app/pids
 
 # Copy application code
-COPY . .
+COPY config/mcp_servers.example.json ./config/mcp_servers.example.json
+COPY scripts ./scripts
+COPY requirements.txt .
 
 # Set daemon mode environment variable
 ENV MCP_DAEMON_MODE=true
