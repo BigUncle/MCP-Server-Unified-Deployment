@@ -11,14 +11,24 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+RUN printf "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free\n\
+deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free\n\
+deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free\n" > /etc/apt/sources.list \
+    && rm -rf /etc/apt/sources.list.d/*
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     git curl \
     connect-proxy ffmpeg locales locales-all \
-    nodejs npm \
+    ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# 安装 Node.js 22.x（官方推荐脚本，适配 Debian/Ubuntu）
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get update && \
+    apt-get install -y nodejs && \
+    node --version && npm --version && npx --version
 # Upgrade pip
 RUN python -m pip install --upgrade pip
 
@@ -48,7 +58,8 @@ RUN pipx install mcp-proxy && \
 COPY requirements.txt requirements.txt
 
 # Install Python dependencies
-RUN if [ -f requirements.txt ]; then uv pip install -r requirements.txt --system; fi
+# RUN if [ -f requirements.txt ]; then uv pip install -r requirements.txt --system; fi
+RUN uv pip install -r requirements.txt --system
 
 # Final stage
 FROM python:3.12-slim
@@ -60,19 +71,31 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+
 # Set timezone if needed
-# ENV TZ=Asia/Shanghai
-# RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Change source.list to aliyun mirror if needed
+RUN printf "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free\n\
+deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free\n\
+deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free\n" > /etc/apt/sources.list \
+    && rm -rf /etc/apt/sources.list.d/*
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y \
     git curl \
     connect-proxy ffmpeg locales locales-all \
-    nodejs npm \
+    ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install pipx and mcp-proxy in the final image
+# 安装 Node.js 22.x（官方推荐脚本，适配 Debian/Ubuntu）
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get update && \
+    apt-get install -y nodejs && \
+    node --version && npm --version && npx --version
 RUN pip install --no-cache-dir pipx && \
     pipx ensurepath && \
     pipx install mcp-proxy && \
@@ -98,7 +121,7 @@ RUN pip install --no-cache-dir uv && \
 
 # Verify required dependencies are installed
 RUN pip list | grep psutil || pip install --no-cache-dir psutil>=5.9.0
-RUN node --version && npm --version && npx --version || (echo "Node.js, npm, or npx is not installed correctly" && exit 1)
+RUN node --version && npm --version && npx --version && python3 --version || (echo "Node.js, npm, npx, or python3 is not installed correctly" && exit 1)
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/pids
