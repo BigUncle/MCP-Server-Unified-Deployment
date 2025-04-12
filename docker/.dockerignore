@@ -5,6 +5,12 @@
 .gitignore
 .github/
 
+# Persistent data
+config/
+!config/mcp_servers.example.json
+!config/mcp_cline_settings_for_Cline_and_RooCode.json
+backup/
+
 # Python cache files
 __pycache__/
 *.py[cod]
@@ -37,6 +43,7 @@ docs/
 .trunk/
 
 # Local development files
+logs/
 *.log
 *.sqlite3
 
@@ -53,3 +60,15 @@ build/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+
+.roo/
+config/client_configs/
+mcp-data/
+npm-global/
+node_modules/
+node-modules/
+yarn-global/
+yarn-cache/
+uvx-global/
+mcp-servers/

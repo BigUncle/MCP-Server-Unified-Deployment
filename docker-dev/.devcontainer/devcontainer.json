@@ -12,10 +12,13 @@
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
+        "ms-python.isort",
+        "ms-python.debugpy",
+        "ms-python.autopep8",
         "ms-toolsai.jupyter",
         "ms-azuretools.vscode-docker",
         "GitHub.copilot",
-        "GitHub.copilot-chat@release",
+        "GitHub.copilot-chat",
         "github.vscode-github-actions",
         "rooveterinaryinc.roo-cline",
         "formulahendry.code-runner",
@@ -24,7 +27,8 @@
         "cweijan.xmind-viewer",
         "alibaba-cloud.tongyi-lingma",
         "saoudrizwan.claude-dev",
-        "aminer.codegeex"
+        "aminer.codegeex",
+        "ms-windows-ai-studio.windows-ai-studio"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
@@ -42,10 +46,12 @@
     }
   },
   "forwardPorts": [
-    5678, 33001, 33002, 33003, 33004, 33005, 33006, 33007, 33008, 33009, 
-    33010, 33011, 33012, 33013, 33014, 33015, 33016, 33017, 33018, 33019
+    5678, 33001, 33002, 33003, 33004, 33005, 33006, 33007, 33008, 33009, 33010
   ],
   "remoteEnv": {
     "PYTHONUNBUFFERED": "1"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   }
 }

@@ -23,6 +23,11 @@ services:
       LC_ALL: zh_CN.UTF-8
       no_proxy: "localhost,127.0.0.1"
       NO_PROXY: "localhost,127.0.0.1"
-    # Add this line to disable VS Code auto-mounted volumes
+      # EXTERNAL_HOST: "your-host-ip-or-domain"
+      EXTERNAL_HOST: "host.docker.internal"
+      # Explicitly set the real host IP for external client access
+      # Replace with your actual host machine IP on the network
+      REAL_HOST_IP: "192.168.1.8"
+      
     # labels:
     #   devcontainer.metadata: '{"customizations": {"vscode": {"remote.containers.mountWslDistro": false}}}'

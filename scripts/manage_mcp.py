@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 import psutil
-
+from mcp_manager.config import get_server_ip_port
 # Configuration file paths
 CONFIG_FILE = Path(__file__).parent.parent / "config" / "mcp_servers.json"
 PID_DIR = Path(__file__).parent.parent / "pids"
@@ -118,9 +118,9 @@ def start_server(server):
     # Create log file
     log_file = open(LOG_DIR / f"{name}_{time.strftime('%Y%m%d%H%M%S')}.log", "a")
 
-    # 添加日志头信息
-    log_file.write(f"=== 服务启动 {time.ctime()} ===\n")
-    log_file.write(f"执行命令: {cmd}\n\n")
+    # Add log header information
+    log_file.write(f"=== Service Start {time.ctime()} ===\n")
+    log_file.write(f"Execute command: {cmd}\n\n")
 
     # Print startup information for debugging
     print(f"Starting server '{name}' with command: {cmd}")
@@ -196,10 +196,14 @@ def server_status(server):
     name = server["name"]
     enabled = server.get("enabled", True)
     server_type = server.get("type", "unknown")
-    host = server.get("host", "localhost")
     port = server.get("sse_port", server.get("port", "N/A"))
-    # path = server.get("path", "未知")
-    url = f"http://{host}:{port}/sse"
+
+    # Fix dynamic host and url retrieval logic
+    resolved_host, _ = get_server_ip_port(server)
+    # sse_host = server.get("sse_host", "localhost")
+    
+    # Use resolved_host rather than the original host to ensure the URL uses a valid address
+    url = f"http://{resolved_host}:{port}/sse"
 
     # Check PID file
     pid = load_pid(name)
@@ -278,7 +282,7 @@ def print_status_table():
 
     print("-" * 100)
 
-    # 打印每个服务器的状态
+    # Print status for each server
     for status in status_list:
         print(
             "{:<{}} {:<{}} {:<{}} {:<{}} {:<{}} {:<{}} {:<{}}".format(
@@ -340,22 +344,22 @@ def main():
             try:
                 # Keep the process running and periodically check server status
                 while True:
-                    time.sleep(30)  # 缩短检测间隔到30秒
+                    time.sleep(30)  # Reduced check interval to 30 seconds
 
-                    # 新增健康检查逻辑
+                    # Added health check logic
                     for server in config["servers"]:
                         if server.get("enabled", True):
                             pid = load_pid(server["name"])
                             port = server.get("sse_port", server.get("port"))
 
-                            # 双重检查：进程存在且端口监听
+                            # Double check: process exists and port is listening
                             if pid and is_running(pid) and port:
                                 if not is_port_in_use(port):
-                                    print(f"服务'{server['name']}'进程存在但端口{port}未监听，执行重启...")
+                                    print(f"Service '{server['name']}' process exists but port {port} is not listening, restarting...")
                                     stop_server(server)
                                     start_server(server)
                             elif pid and not is_running(pid):
-                                print(f"服务'{server['name']}'异常停止，执行重启...")
+                                print(f"Service '{server['name']}' abnormally stopped, restarting...")
                                 start_server(server)
             except KeyboardInterrupt:
                 print("Daemon mode interrupted, stopping all servers...")
@@ -369,22 +373,22 @@ def main():
         try:
             # Keep the process running and periodically check server status
             while True:
-                time.sleep(30)  # 缩短检测间隔到30秒
+                time.sleep(30)  # Reduced check interval to 30 seconds
 
-                # 新增健康检查逻辑
+                # Added health check logic
                 for server in config["servers"]:
                     if server.get("enabled", True):
                         pid = load_pid(server["name"])
                         port = server.get("sse_port", server.get("port"))
 
-                        # 双重检查：进程存在且端口监听
+                        # Double check: process exists and port is listening
                         if pid and is_running(pid) and port:
                             if not is_port_in_use(port):
-                                print(f"服务'{server['name']}'进程存在但端口{port}未监听，执行重启...")
+                                print(f"Service '{server['name']}' process exists but port {port} is not listening, restarting...")
                                 stop_server(server)
                                 start_server(server)
                         elif pid and not is_running(pid):
-                            print(f"服务'{server['name']}'异常停止，执行重启...")
+                            print(f"Service '{server['name']}' abnormally stopped, restarting...")
                             start_server(server)
         except KeyboardInterrupt:
             print("Daemon mode interrupted, stopping all servers...")
