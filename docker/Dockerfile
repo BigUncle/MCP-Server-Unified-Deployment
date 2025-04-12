@@ -1,150 +1,121 @@
 # Production Dockerfile for MCP Server Unified Deployment
-# Based on python:3.12-slim with minimal dependencies for production use
+# Uses multi-stage build, non-root user, and installs tools efficiently.
 
-# Build stage for optimizing image size
-FROM python:3.12-slim AS builder
+# ---- Base Stage ----
+# Use a specific Python version for reproducibility
+FROM python:3.12-slim AS base
 
-# Set working directory
-WORKDIR /app
-
-# Set environment variables to reduce Python bytecode generation and enable unbuffered mode
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-RUN printf "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free\n\
-deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free\n\
-deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free\n" > /etc/apt/sources.list \
-    && rm -rf /etc/apt/sources.list.d/*
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    git curl \
-    connect-proxy ffmpeg locales locales-all \
-    ca-certificates \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装 Node.js 22.x（官方推荐脚本，适配 Debian/Ubuntu）
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-    apt-get update && \
-    apt-get install -y nodejs && \
-    node --version && npm --version && npx --version
-# Upgrade pip
-RUN python -m pip install --upgrade pip
-
-# Install uv, pipx, debugpy
-RUN pip install --no-cache-dir uv pipx debugpy
-# Adjust pipx path configuration to ensure scripts are usable
-RUN pipx ensurepath && \
-    echo 'export PATH="$PATH:$HOME/.local/bin"' >> /root/.bashrc && \
-    . /root/.bashrc
-
-# Install uvx (uv extension commands) and verify it's available
-##############################################################################
-# DO NOT USE `pip install uvx`, AS IT WILL INSTALL ANOTHER UV PACKAGE,
-# WHICH ISN A DEPRECATED PACKAGE(https://pypi.org/project/uvx/), NOT WHATT WE WANT
-# THE ACTUAL UVX PACKAGE WE WANT TO USE IS AT: https://pypi.org/project/uv/
-##############################################################################
-RUN pip install --no-cache-dir uv && \
-    ln -sf $(which uvx) /usr/local/bin/uvx && \
-    which uvx || echo "uvx installation failed"
-
-# Install mcp-proxy and verify it's installed correctly
-RUN pipx install mcp-proxy && \
-    ln -sf /root/.local/bin/mcp-proxy /usr/local/bin/mcp-proxy && \
-    which mcp-proxy || echo "mcp-proxy installation failed"
-
-# Copy requirements
-COPY requirements.txt requirements.txt
-# 判断 requirements.txt 文件是否已经成功复制过去
-RUN if [ -f requirements.txt ]; then echo "requirements.txt copied successfully"; else echo "requirements.txt not found"; fi
-
-# Install Python dependencies
-# RUN if [ -f requirements.txt ]; then uv pip install -r requirements.txt --system; fi
-RUN uv pip install -r requirements.txt --system
-
-# Final stage
-FROM python:3.12-slim
-
-# Set working directory
-WORKDIR /app
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-
-# Set timezone if needed
-ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-# Change source.list to aliyun mirror if needed
-RUN printf "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free\n\
-deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free\n\
-deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free\n" > /etc/apt/sources.list \
-    && rm -rf /etc/apt/sources.list.d/*
-
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
-    git curl \
-    connect-proxy ffmpeg locales locales-all \
-    ca-certificates \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-
-# Install Node.js 22.x (official recommended script, adapted for Debian/Ubuntu)
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-    apt-get update && \
-    apt-get install -y nodejs && \
-    node --version && npm --version && npx --version
-
-# Install pipx and mcp-proxy in the final image
-RUN pip install --no-cache-dir pipx && \
-    pipx ensurepath && \
-    pipx install mcp-proxy && \
-    ln -sf /root/.local/bin/mcp-proxy /usr/local/bin/mcp-proxy
-
-# Install uvx in the final image and verify it works
-##############################################################################
-# DO NOT USE `pip install uvx`, AS IT WILL INSTALL ANOTHER UV PACKAGE,
-# WHICH ISN A DEPRECATED PACKAGE(https://pypi.org/project/uvx/), NOT WHATT WE WANT
-# THE ACTUAL UVX PACKAGE WE WANT TO USE IS AT: https://pypi.org/project/uv/
-##############################################################################
-
-RUN pip install --no-cache-dir uv && \
-    ln -sf $(which uvx) /usr/local/bin/uvx && \
-    uvx --help && \
-    which uvx || echo "uvx installation failed"
-
-# Set locale if needed
-RUN echo "zh_CN.UTF-8 UTF-8" > /etc/locale.gen && locale-gen zh_CN.UTF-8 && update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh LC_ALL=zh_CN.UTF-8
+# Set environment variables for locale, timezone, Python, and tool paths for non-root user
 ENV LANG=zh_CN.UTF-8 \
     LANGUAGE=zh_CN:zh \
-    LC_ALL=zh_CN.UTF-8
-# Copy requirements
-COPY requirements.txt requirements.txt
-# 判断 requirements.txt 文件是否已经成功复制过去
-RUN if [ -f requirements.txt ]; then echo "requirements.txt copied successfully"; else echo "requirements.txt not found"; fi
+    LC_ALL=zh_CN.UTF-8 \
+    TZ=Asia/Shanghai \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    # Paths for tools installed as non-root user 'mcp'
+    PATH="/home/mcp/.local/bin:/home/mcp/.uv/bin:$PATH" \
+    PIPX_HOME="/home/mcp/.local/pipx" \
+    PIPX_BIN_DIR="/home/mcp/.local/bin" \
+    UV_CACHE_DIR="/home/mcp/.cache/uv" \
+    NPM_CONFIG_PREFIX="/home/mcp/.npm" \
+    NODE_PATH="/app/node_modules:/home/mcp/.npm/lib/node_modules"
 
-# Install Python dependencies
-# RUN if [ -f requirements.txt ]; then uv pip install -r requirements.txt --system; fi
-RUN uv pip install -r requirements.txt --system
+# Create a non-root user and group first
+RUN groupadd --gid 1000 mcp && \
+    useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home mcp
 
-# Verify required dependencies are installed
-RUN pip list | grep psutil || pip install --no-cache-dir psutil>=5.9.0
-RUN node --version && npm --version && npx --version && python3 --version || (echo "Node.js, npm, npx, or python3 is not installed correctly" && exit 1)
+# Install essential OS packages + Node.js + Git + Set timezone/locale
+# Use mirrors for faster downloads (optional)
+RUN printf "deb http://mirrors.aliyun.com/debian/ bookworm main contrib non-free non-free-firmware\n\
+deb http://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free non-free-firmware\n\
+deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non-free non-free-firmware\n" > /etc/apt/sources.list \
+    && rm -rf /etc/apt/sources.list.d/* \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    git \
+    locales \
+    # Install Node.js (e.g., LTS version 22.x)
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    # Configure timezone (optional)
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
+    # Configure locale (optional)
+    && echo "zh_CN.UTF-8 UTF-8" >> /etc/locale.gen && locale-gen zh_CN.UTF-8 \
+    # Clean up
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Create necessary directories
-RUN mkdir -p /app/logs /app/pids
+# Switch to the non-root user for subsequent installations
+USER mcp
+WORKDIR /home/mcp
+
+# Upgrade pip and set pip mirrors (Optional)
+RUN python -m pip install --upgrade pip && \
+    python -m pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+
+# Install uv and pipx for the 'mcp' user
+# Use --user flag for non-root install
+RUN python -m pip install --user --no-cache-dir uv pipx
+# Ensure pipx paths are recognised (redundant with ENV PATH but safe)
+RUN python -m pipx ensurepath
+
+# Install mcp-proxy using pipx as the 'mcp' user
+# No need for symlink if PATH is correct
+RUN pipx install mcp-proxy
+
+# ---- Builder Stage (Optional but good practice for deps) ----
+FROM base AS builder
+
+USER mcp
+WORKDIR /app
+
+# Copy only necessary files for dependency installation
+COPY --chown=mcp:mcp requirements.txt ./
+COPY --chown=mcp:mcp package.json ./
+
+# Install Python dependencies using uv as 'mcp' user
+RUN python -m pip install --user --no-cache-dir -r requirements.txt
+
+# Install node dependencies if package.json has entries (optional)
+# RUN npm install --prefix /app
+
+# ---- Final Stage ----
+FROM base AS final
+
+USER mcp
+WORKDIR /app
+
+# Copy installed Python packages from builder stage to user's .local
+COPY --from=builder --chown=mcp:mcp /home/mcp/.local /home/mcp/.local
+# Copy node_modules if built in builder stage
+# COPY --from=builder --chown=mcp:mcp /app/node_modules /app/node_modules
 
 # Copy application code
-COPY config/mcp_servers.example.json ./config/mcp_servers.example.json
-COPY scripts ./scripts
-COPY requirements.txt .
+COPY --chown=mcp:mcp scripts /app/scripts
+COPY --chown=mcp:mcp scripts/mcp_manager /app/mcp_manager
+COPY --chown=mcp:mcp config/mcp_servers.example.json /app/config/mcp_servers.example.json
+# Copy requirements.txt again for reference if needed, though installed already
+COPY --chown=mcp:mcp requirements.txt /app/requirements.txt
 
-# Set daemon mode environment variable
-ENV MCP_DAEMON_MODE=true
+# Ensure necessary application directories exist and have correct ownership
+# These paths should match the volumes in docker-compose.yml
+RUN mkdir -p /app/config /app/logs /app/pids /app/mcp-data /app/mcp-servers /app/client_configs && \
+    chown -R mcp:mcp /app
 
-# Command to run the application in daemon mode
-CMD ["python", "scripts/manage_mcp.py", "daemon"]
+# Verify key tools are runnable by 'mcp' user
+# Use full path if PATH isn't immediately active in RUN layer
+RUN /home/mcp/.local/bin/uv --version && \
+    /home/mcp/.local/bin/pipx --version && \
+    /home/mcp/.local/bin/mcp-proxy --help && \
+    node --version && npm --version && npx --version
+
+# Expose the typical MCP port range (adjust if needed)
+EXPOSE 23001-23020
+
+# Define the entrypoint to run startup script then the manager
+# Use '&&' to ensure startup script finishes successfully first
+# Using exec form is preferred over shell form
+ENTRYPOINT ["/bin/bash", "-c", "python /app/scripts/container_startup.py && python /app/scripts/manage_mcp.py daemon"]
+
+# CMD can provide default arguments to ENTRYPOINT, but not needed here.
+# CMD ["daemon"]
