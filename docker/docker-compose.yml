@@ -1,72 +1,66 @@
-# Production docker-compose.yml for MCP Server Unified Deployment
-
 services:
   mcp-server:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: mcp-server:latest
-    container_name: mcp-server
+    image: mcp-server-unified:latest # Use the same tag as built
+    container_name: mcp-server-unified
     restart: unless-stopped
     ports:
-      - "23001-23020:23001-23020" # MCP ports SSE ports
+      - "23001-23020:23001-23020" # Match Dockerfile EXPOSE
+
     volumes:
-      - ../config:/app/config    # Removed `:ro` to allow writing config files
+      # Configuration is read-write (client config generation)
+      - ../config:/app/config
       - ../logs:/app/logs
       - ../pids:/app/pids
-      - ../scripts:/app/scripts
-      # 新增持久化目录
-      - ../mcp-data:/app/mcp-data     # MCP服务器数据持久化
-      - ../npm-global:/root/.npm      # NPM全局包安装持久化
-      - ../mcp-servers:/app/mcp-servers  # MCP服务器源代码持久化
-      - ../uvx-global:/root/.uvx      # UVX全局安装持久化
-      - ../node-modules:/app/node_modules # Node模块持久化
+      - ../mcp-data:/app/mcp-data     # Generic data persistence
+      - ../mcp-servers:/app/mcp-servers  # Source code persistence
+
+      # --- Persistent volumes for runtime installations (MATCH NON-ROOT USER) ---
+      # Ensure these directories exist on the host and have correct permissions (UID/GID 1000)
+      # Example host commands:
+      #   mkdir -p npm-global uvx-global uv-cache
+      #   sudo chown -R 1000:1000 npm-global uvx-global uv-cache
+      - ../npm-global:/home/mcp/.npm      # NPM global cache/install for 'mcp' user
+      - ../uvx-global:/home/mcp/.uvx      # UVX install location for 'mcp' user (assuming ~/.uvx)
+      - ../uv-cache:/home/mcp/.cache/uv   # UV cache persistence for 'mcp' user
+
+      # --- Volumes NOT typically needed for production ---
+      # - ../scripts:/app/scripts # Scripts are copied in Dockerfile
+      # - ../pipx-home:/home/mcp/.local/pipx # mcp-proxy installed in image
+      # - ../node-modules:/app/node_modules # Only if project-local node deps needed & not installed in image
+
     environment:
+      # Keep locale and timezone settings (match Dockerfile)
       TZ: Asia/Shanghai
       LANG: zh_CN.UTF-8
       LANGUAGE: zh_CN:zh
       LC_ALL: zh_CN.UTF-8
-      MCP_DAEMON_MODE: "true"
-      # Host resolution configuration
-      # Uses special Docker DNS name to access host machine from container
-      # This address may vary based on Docker environment (Docker Desktop, Docker Engine, etc.)
-      EXTERNAL_HOST: "host.docker.internal"
-      # Explicitly set the real host IP for external client access
-      # Replace with your actual host machine IP on the network
-      REAL_HOST_IP: "192.168.1.8"
-      # 新增环境变量
+      # Host resolution - REAL_HOST_IP is critical for client access from outside Docker
+      EXTERNAL_HOST: "host.docker.internal" # Docker Desktop default, might vary
+      # !!! IMPORTANT: Replace with your host machine's actual IP accessible by clients !!!
+      REAL_HOST_IP: "192.168.1.8" # <---- UPDATE THIS IP ADDRESS
+      # Environment variables needed by the container/tools (match Dockerfile ENV for non-root)
+      MCP_DAEMON_MODE: "true" # Set explicitly, though entrypoint uses 'daemon' command
       MCP_DATA_DIR: "/app/mcp-data"
-      NPM_CONFIG_PREFIX: "/root/.npm"
-      NODE_PATH: "/app/node_modules"
+      NPM_CONFIG_PREFIX: "/home/mcp/.npm"
+      NODE_PATH: "/app/node_modules:/home/mcp/.npm/lib/node_modules" # Include global path
+      PIPX_HOME: "/home/mcp/.local/pipx"
+      PIPX_BIN_DIR: "/home/mcp/.local/bin"
+      UV_CACHE_DIR: "/home/mcp/.cache/uv"
 
-    # Modified entrypoint to ensure container keeps running:
-    # 1. Run initialization script
-    # 2. Wait for installation to complete
-    # 3. Start MCP servers
-    # 4. Generate configuration
-    # 5. Monitor log files to keep container running
-    entrypoint: 
-      - /bin/bash
-      - -c
-      - |-
-        python /app/scripts/container_startup.py &&
-        python /app/scripts/manage_mcp.py start &&
-        python /app/scripts/integrate_config_generator.py &&
-        tail -f /app/logs/*.log || tail -f /dev/null
+    # Entrypoint is defined in the Dockerfile, no need to override here unless necessary
 
-    # Security: drop unnecessary privileges
+    # Security: Already handled by non-root user. `no-new-privileges` is still good.
     security_opt:
       - no-new-privileges:true
-    # Healthcheck to monitor application status
+
+    # Healthcheck (adapt port/command if needed, uses localhost inside container)
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import socket; s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.connect(('localhost', 23001)) if True else exit(1)",
-        ]
+      # Test connection to the primary fetch server port (adjust if different)
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('localhost', 23001), timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 45s # Increased start period slightly
