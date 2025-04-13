@@ -30,7 +30,9 @@
         "aminer.codegeex",
         "ms-windows-ai-studio.windows-ai-studio",
         "google.geminicodeassist",
-        "googlecloudtools.cloudcode"
+        "googlecloudtools.cloudcode",
+        "shd101wyy.markdown-preview-enhanced",
+        "bierner.markdown-preview-github-styles"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
