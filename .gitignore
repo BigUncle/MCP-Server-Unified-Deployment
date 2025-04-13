@@ -18,10 +18,10 @@ env/
 
 
 # Config files
-config/
+config/*
+!config/mcp_servers.example.json
+!config/mcp_cline_settings_for_Cline_and_RooCode.json
 backup/
-!mcp_servers.example.json
-!mcp_cline_settings_for_Cline_and_RooCode.json
 
 # Node.js
 package-lock.json

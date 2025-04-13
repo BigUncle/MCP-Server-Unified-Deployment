@@ -2,65 +2,199 @@
   "servers": [
     {
       "name": "fetch",
+      "package": "mcp-server-fetch",
       "enabled": true,
       "type": "uvx",
+      "repo": "https://github.com/modelcontextprotocol/servers.git",
+      "transport_type": "sse",
       "sse_host": "0.0.0.0",
       "sse_port": 23001,
       "allow_origin": "*",
-      "install_commands": ["uvx -v mcp-server-fetch"],
+      "install_commands": [
+        "uvx mcp-server-fetch"
+      ],
       "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
-      "start_command": "uvx mcp-server-fetch  ",
-      "env": {}
+      "start_command": "uvx mcp-server-fetch ",
+      "env": {},
+      "autoApprove": "*"
     },
     {
       "name": "filesystem",
+      "package": "@modelcontextprotocol/server-filesystem",
       "enabled": true,
-      "type": "uvx",
-      "sse_host": "localhost",
+      "type": "npx",
+      "repo": "https://github.com/modelcontextprotocol/servers.git",
+      "sse_host": "0.0.0.0",
       "sse_port": 23002,
       "allow_origin": "*",
-      "install_commands": ["npx -y @modelcontextprotocol/server-filesystem"],
+      "install_commands": [
+        "npx -y @modelcontextprotocol/server-filesystem"
+      ],
       "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
-      "start_command": "npx @modelcontextprotocol/server-filesystem ~",
-      "env": {}
+      "start_command": "npx @modelcontextprotocol/server-filesystem ~ ",
+      "env": {},
+      "autoApprove": [
+        "read_file",
+        "read_multiple_files",
+        "write_file",
+        "edit_file",
+        "create_directory",
+        "list_directory",
+        "directory_tree",
+        "move_file",
+        "search_files",
+        "get_file_info",
+        "list_allowed_directories"
+      ]
     },
     {
       "name": "git",
-      "enabled": false,
+      "package": "mcp-server-git",
+      "enabled": true,
       "type": "uvx",
+      "repo": "https://github.com/modelcontextprotocol/servers.git",
       "sse_host": "0.0.0.0",
       "sse_port": 23003,
       "allow_origin": "*",
-      "install_commands": ["uvx mcp-server-git"],
+      "install_commands": [
+        "uvx mcp-server-git"
+      ],
       "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
-      "start_command": "uvx mcp-server-git",
-      "env": {}
+      "start_command": "uvx mcp-server-git --repository .",
+      "args": [
+        "--repository",
+        "."
+      ],
+      "env": {},
+      "autoApprove": []
+    },
+    {
+      "name": "amap",
+      "package": "@amap/amap-maps-mcp-server",
+      "enabled": true,
+      "type": "npx",
+      "sse_host": "0.0.0.0",
+      "sse_port": 23004,
+      "allow_origin": "*",
+      "install_commands": [
+        "npx -y @amap/amap-maps-mcp-server"
+      ],
+      "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
+      "start_command": "npx @amap/amap-maps-mcp-server",
+      "env": {
+        "AMAP_MAPS_API_KEY": "<YOUR AMAP_MAPS_API_KEY>"
+      },
+      "autoApprove": [
+        "search",
+        "fetch_content",
+        "maps_regeocode",
+        "maps_geo",
+        "maps_ip_location",
+        "maps_weather",
+        "maps_search_detail",
+        "maps_bicycling",
+        "maps_direction_walking",
+        "maps_direction_driving",
+        "maps_direction_transit_integrated",
+        "maps_distance",
+        "maps_text_search",
+        "maps_around_search"
+      ]
     },
     {
       "name": "github",
+      "package": "@modelcontextprotocol/server-github",
       "enabled": true,
-      "type": "node",
+      "type": "npx",
+      "repo": "https://github.com/modelcontextprotocol/servers.git",
       "sse_host": "0.0.0.0",
       "sse_port": 23005,
       "allow_origin": "*",
-      "install_commands": ["npx -y @modelcontextprotocol/server-github"],
+      "install_commands": [
+        "npx -y @modelcontextprotocol/server-github"
+      ],
       "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
       "start_command": "npx @modelcontextprotocol/server-github",
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR GITHUB PERSONAL ACCESS TOKEN>"
-      }
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR PERSONAL GITHUB_PERSONAL_ACCESS_TOKEN>"
+      },
+      "autoApprove": [
+        "create_or_update_file",
+        "search_repositories",
+        "create_repository",
+        "get_file_contents",
+        "push_files",
+        "create_issue",
+        "create_pull_request",
+        "fork_repository",
+        "create_branch",
+        "list_commits",
+        "list_issues",
+        "update_issue",
+        "add_issue_comment",
+        "search_code",
+        "search_issues",
+        "search_users",
+        "get_issue",
+        "get_pull_request",
+        "list_pull_requests",
+        "create_pull_request_review",
+        "merge_pull_request",
+        "get_pull_request_files",
+        "get_pull_request_status",
+        "update_pull_request_branch",
+        "get_pull_request_comments",
+        "get_pull_request_reviews"
+      ]
+    },
+    {
+      "name": "firecrawl",
+      "package": "firecrawl-mcp",
+      "enabled": true,
+      "type": "npx",
+      "sse_host": "0.0.0.0",
+      "sse_port": 23006,
+      "allow_origin": "*",
+      "install_commands": [
+        "npx -y firecrawl-mcp"
+      ],
+      "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
+      "start_command": "npx firecrawl-mcp",
+      "env": {
+        "FIRECRAWL_API_KEY": "<YOUR FIRECRAWL_API_KEY>"
+      },
+      "autoApprove": [
+        "firecrawl_scrape",
+        "firecrawl_map",
+        "firecrawl_crawl",
+        "firecrawl_batch_scrape",
+        "firecrawl_check_batch_status",
+        "firecrawl_check_crawl_status",
+        "firecrawl_search",
+        "firecrawl_extract",
+        "firecrawl_deep_research",
+        "firecrawl_generate_llmstxt"
+      ]
     },
     {
       "name": "duckduckgo",
+      "package": "duckduckgo-mcp-server",
       "enabled": true,
       "type": "uvx",
+      "repo": "https://github.com/nickclyde/duckduckgo-mcp-server.git",
       "sse_host": "0.0.0.0",
       "sse_port": 23008,
       "allow_origin": "*",
-      "install_commands": ["uvx -v duckduckgo-mcp-server"],
+      "install_commands": [
+        "uv pip install duckduckgo-mcp-server --system"
+      ],
       "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",
       "start_command": "uvx duckduckgo-mcp-server",
-      "env": {}
+      "env": {},
+      "autoApprove": [
+        "search",
+        "fetch_content"
+      ]
     }
   ]
 }
