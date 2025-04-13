@@ -20,6 +20,7 @@ env/
 # Config files
 config/*
 !config/mcp_servers.example.json
+!config/mcp_servers.example.yaml
 !config/mcp_cline_settings_for_Cline_and_RooCode.json
 backup/
 

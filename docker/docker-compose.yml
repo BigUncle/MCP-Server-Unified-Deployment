@@ -3,64 +3,89 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: mcp-server-unified:latest # Use the same tag as built
-    container_name: mcp-server-unified
+    image: mcp-server-unified-nginx:latest
+    container_name: mcp-server-unifie-nginx
     restart: unless-stopped
-    ports:
-      - "23001-23020:23001-23020" # Match Dockerfile EXPOSE
+    # --- NO LONGER EXPOSE internal ports directly ---
+    # ports:
+    #   - "23001-23020:23001-23020"
 
     volumes:
-      # Configuration is read-write (client config generation)
+      # Mount YAML config file (read-write if startup script copies example)
       - ../config:/app/config
       - ../logs:/app/logs
       - ../pids:/app/pids
-      - ../mcp-data:/app/mcp-data     # Generic data persistence
-      - ../mcp-servers:/app/mcp-servers  # Source code persistence
+      - ../mcp-data:/app/mcp-data
+      - ../mcp-servers:/app/mcp-servers # For source_code type servers
 
-      # --- Persistent volumes for runtime installations (MATCH NON-ROOT USER) ---
-      # Ensure these directories exist on the host and have correct permissions (UID/GID 1000)
-      # Example host commands:
-      #   mkdir -p npm-global uvx-global uv-cache
-      #   sudo chown -R 1000:1000 npm-global uvx-global uv-cache
-      - ../npm-global:/home/mcp/.npm      # NPM global cache/install for 'mcp' user
-      - ../uvx-global:/home/mcp/.uvx      # UVX install location for 'mcp' user (assuming ~/.uvx)
-      - ../uv-cache:/home/mcp/.cache/uv   # UV cache persistence for 'mcp' user
+      # Persistent volumes for runtime tools (npm, uv cache)
+      - ../npm-global:/home/mcp/.npm
+      # - ../uvx-global:/home/mcp/.uvx # Uncomment if uvx is used
+      - ../uv-cache:/home/mcp/.cache/uv
 
-      # --- Volumes NOT typically needed for production ---
-      # - ../scripts:/app/scripts # Scripts are copied in Dockerfile
-      # - ../pipx-home:/home/mcp/.local/pipx # mcp-proxy installed in image
-      # - ../node-modules:/app/node_modules # Only if project-local node deps needed & not installed in image
+      # --- Volume for Nginx configuration GENERATION OUTPUT ---
+      # mcp-server WRITES to this path inside its container
+      # Nginx READS from the corresponding host path mounted into its conf.d
+      - ./nginx/generated_conf.d:/etc/nginx/generated_conf.d # Path inside mcp-server
 
     environment:
-      # Keep locale and timezone settings (match Dockerfile)
       TZ: Asia/Shanghai
       LANG: zh_CN.UTF-8
       LANGUAGE: zh_CN:zh
       LC_ALL: zh_CN.UTF-8
-      # Host resolution - REAL_HOST_IP is critical for client access from outside Docker
-      EXTERNAL_HOST: "host.docker.internal" # Docker Desktop default, might vary
       # !!! IMPORTANT: Replace with your host machine's actual IP accessible by clients !!!
       REAL_HOST_IP: "192.168.1.8" # <---- UPDATE THIS IP ADDRESS
-      # Environment variables needed by the container/tools (match Dockerfile ENV for non-root)
-      MCP_DAEMON_MODE: "true" # Set explicitly, though entrypoint uses 'daemon' command
+      NGINX_HOST_PORT: "23000" # Port Nginx listens on the host (used by client config generator)
+
+      # Tool paths and flags
+      MCP_DAEMON_MODE: "true" # manage_mcp.py uses this
       MCP_DATA_DIR: "/app/mcp-data"
       NPM_CONFIG_PREFIX: "/home/mcp/.npm"
-      NODE_PATH: "/app/node_modules:/home/mcp/.npm/lib/node_modules" # Include global path
+      NODE_PATH: "/app/node_modules:/home/mcp/.npm/lib/node_modules"
       PIPX_HOME: "/home/mcp/.local/pipx"
       PIPX_BIN_DIR: "/home/mcp/.local/bin"
       UV_CACHE_DIR: "/home/mcp/.cache/uv"
 
-    # Entrypoint is defined in the Dockerfile, no need to override here unless necessary
+      # --- Control Nginx Config Generation ---
+      GENERATE_NGINX_CONFIG: "true"
+      # Path INSIDE mcp-server container where generated files are written
+      NGINX_CONFIG_DIR: "/etc/nginx/generated_conf.d"
 
-    # Security: Already handled by non-root user. `no-new-privileges` is still good.
+    networks:
+      - mcp-net
     security_opt:
       - no-new-privileges:true
-
-    # Healthcheck (adapt port/command if needed, uses localhost inside container)
     healthcheck:
-      # Test connection to the primary fetch server port (adjust if different)
-      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('localhost', 23001), timeout=5)"]
+      # Healthcheck still targets an INTERNAL port of one of the services
+      # Use the internal_port defined in mcp_servers.yaml for a reliable service
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('localhost', 23001), timeout=5)"] # Example: Check service-a's internal port
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 45s # Increased start period slightly
+      retries: 5
+      start_period: 60s
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: mcp-proxy-nginx
+    restart: unless-stopped
+    ports:
+      # Map the FIXED host port to Nginx container's port 80
+      - "${NGINX_HOST_PORT:-23000}:80"
+    volumes:
+      # Mount base Nginx config (read-only)
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Mount the directory where mcp-server GENERATED the configs (read-only for Nginx)
+      # This path on the HOST must match the host path used in mcp-server's volume mount
+      - ./nginx/generated_conf.d:/etc/nginx/conf.d:ro # Nginx includes from /etc/nginx/conf.d
+      # Optional: Mount default nginx html for root path
+      # - ./nginx/html:/usr/share/nginx/html:ro
+    networks:
+      - mcp-net
+    depends_on:
+      mcp-server:
+        # Wait for mcp-server to be healthy before Nginx starts proxying
+        condition: service_healthy
+
+networks:
+  mcp-net:
+    driver: bridge

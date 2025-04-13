@@ -35,6 +35,9 @@ deb http://mirrors.aliyun.com/debian-security bookworm-security main contrib non
     ca-certificates \
     git \
     locales \
+    nginx \
+    net-tools \
+    iproute2 \
     # Install Node.js (e.g., LTS version 22.x)
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
@@ -82,9 +85,12 @@ WORKDIR /app
 
 # Copy only necessary files for dependency installation
 COPY --chown=mcp:mcp requirements.txt ./
-COPY --chown=mcp:mcp package.json ./
+# Optional, if you have a package.json
+COPY --chown=mcp:mcp package.json ./ 
 
 # Install Python dependencies using uv as 'mcp' user
+# Ensure PyYAML is in requirements.txt or install explicitly
+RUN python -m pip install --user --no-cache-dir PyYAML # Add PyYAML here or in requirements.txt
 RUN python -m pip install --user --no-cache-dir -r requirements.txt
 
 # Install node dependencies if package.json has entries (optional)
@@ -93,63 +99,52 @@ RUN python -m pip install --user --no-cache-dir -r requirements.txt
 # ---- Final Stage ----
 FROM base AS final
 
-# Create directory structure as root first
-WORKDIR /app
-
-# 1. Create app directories with correct ownership
+# ... (Create directories, set ownership as before) ...
 RUN mkdir -p \
     /app/config \
     /app/logs \
     /app/pids \
     /app/mcp-data \
     /app/mcp-servers \
-    /app/client_configs
+    /app/client_configs \
+    /etc/nginx/generated_conf.d # Ensure Nginx config dir exists for generator script
 
-RUN chown -R mcp:mcp /app && \
-    chmod 2775 /app && \
-    find /app -type d -exec chmod 2775 {} \; && \
-    find /app -type f -exec chmod 0664 {} \;    
-# 2. Switch to mcp user for application setup
+RUN chown -R mcp:mcp /app /etc/nginx/generated_conf.d && \
+    chmod 2775 /app /etc/nginx/generated_conf.d && \
+    find /app /etc/nginx/generated_conf.d -type d -exec chmod 2775 {} \; && \
+    find /app -type f -exec chmod 0664 {} \;
+
 USER mcp
+WORKDIR /app
 
-# Copy installed Python packages from builder stage to user's .local
+# Copy installed Python packages from builder stage
 COPY --from=builder --chown=mcp:mcp /home/mcp/.local /home/mcp/.local
-# Copy node_modules if built in builder stage
+# Copy node_modules if built
 # COPY --from=builder --chown=mcp:mcp /app/node_modules /app/node_modules
-
 
 # Copy application code
 COPY --chown=mcp:mcp scripts /app/scripts
 COPY --chown=mcp:mcp scripts/mcp_manager /app/mcp_manager
-COPY --chown=mcp:mcp config/mcp_servers.example.json /app/config/mcp_servers.example.json
-# Copy requirements.txt again for reference if needed, though installed already
+# Copy the EXAMPLE YAML config file
+COPY --chown=mcp:mcp config/mcp_servers.example.yaml /app/config/mcp_servers.example.yaml
+# For reference
 COPY --chown=mcp:mcp requirements.txt /app/requirements.txt
+# Example - Your actual paths might differ slightly
+COPY --chown=mcp:mcp docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Ensure necessary application directories exist and have correct ownership
-# These paths should match the volumes in docker-compose.yml
-# RUN mkdir -p /app/config /app/logs /app/pids /app/mcp-data /app/mcp-servers /app/client_configs && \
-#     chown -R mcp:mcp /app
-
-# Verify key tools are runnable by 'mcp' user
-# Use full path if PATH isn't immediately active in RUN layer
+# ... (Verify tools) ...
 RUN /home/mcp/.local/bin/uv --version && \
     /home/mcp/.local/bin/pipx --version && \
     /home/mcp/.local/bin/mcp-proxy --help && \
-    node --version && npm --version && npx --version
-# Switch back to root before EXPOSE and ENTRYPOINT
+    node --version && npm --version && npx --version && \
+    python -c "import yaml; print(f'PyYAML version: {yaml.__version__}')" # Verify PyYAML
+
 USER root
 
-# Expose the typical MCP port range (adjust if needed)
-EXPOSE 23001-23020
+# --- NO LONGER EXPOSE internal ports ---
+# EXPOSE 23001-23020
 
-# Entrypoint script is copied and made executable in the base stage as root
-
-# Define the entrypoint to run the wrapper script
-# The wrapper script will handle permissions and then execute the original command as the 'mcp' user
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# The default command to be executed by the entrypoint script (passed as arguments "$@")
+# CMD remains the same, container_startup.py handles YAML and generators
 CMD ["/bin/bash", "-c", "python /app/scripts/container_startup.py && python /app/scripts/manage_mcp.py daemon"]
-
-# CMD can provide default arguments to ENTRYPOINT, but not needed here.
-# CMD ["daemon"]

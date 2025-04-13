@@ -1,0 +1,40 @@
+# MCP 服务统一配置示例（YAML 格式）
+# 用于 Nginx 路由和服务管理，所有流量统一走 http://ip:fixed_port/{server_name}/sse
+
+servers:
+  - name: "service-a"          # URL 路径名 (http://.../service-a/sse/)
+    enabled: true              # 启用/禁用
+    description: "示例服务A"
+    type: "source_code"        # 'source_code' 或 'prebuilt'
+    internal_port: 23001       # 容器内监听端口
+    repo: "https://github.com/user/service-a-repo.git"
+    subdir: "."                # 仓库子目录
+    install_commands:
+      - "npm install"
+    start_command: "npm start -- --port {internal_port}"
+    env:
+      NODE_ENV: "production"
+    autoApprove:
+      - "function1"
+      - "function2"
+
+  - name: "service-b"
+    enabled: true
+    description: "示例服务B，自动全部授权"
+    type: "prebuilt"
+    internal_port: 23002
+    start_command: "/app/mcp-servers/service-b/run.sh --port {internal_port}"
+    env: {}
+    autoApprove: "*"
+
+  - name: "disabled-service"
+    enabled: false
+    description: "已禁用服务示例"
+    type: "source_code"
+    internal_port: 23003
+    repo: "https://github.com/user/disabled-repo.git"
+    subdir: "."
+    install_commands: []
+    start_command: "echo 'Not starting disabled service'"
+    env: {}
+    autoApprove: []
