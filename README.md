@@ -1,8 +1,59 @@
-# MCP Server Unified Deployment
+## MCP Server Unified Deployment
 
 [English](#mcp-server-unified-deployment) | [中文](#mcp服务器统一部署工具)
 
 A unified deployment and management tool for MCP (Model Context Protocol) servers. This project converts MCP servers deployed in various forms (uvx, npx, etc.) into a standardized SSE (Server-Sent Events) deployment, facilitating unified invocation by different tools.
+
+**Table of Contents**
+
+-   [Features](#features)
+-   [Prerequisites](#prerequisites)
+-   [Installation](#installation)
+-   [Configuration](#configuration)
+    -   [Server Types](#server-types)
+    -   [Environment Variables](#environment-variables-1)
+-   [Usage](#usage)
+    -   [Basic Commands](#basic-commands)
+    -   [Example](#example)
+    -   [Integrate Configuration Generator Script](#integrate-configuration-generator-script)
+    -   [Monitoring](#monitoring)
+-   [Client Configuration](#client-configuration)
+-   [Directory Structure](#directory-structure)
+-   [Docker Support](#docker-support)
+    -   [Docker Deployment Options](#docker-deployment-options)
+    -   [Using Docker for Development](#using-docker-for-development)
+    -   [Production Deployment with Pre-Built Images](#production-deployment-with-pre-built-images)
+    -   [Production Deployment with Docker Compose](#production-deployment-with-docker-compose)
+-   [Contributing](#contributing)
+-   [License](#license)
+
+**中文导航**
+
+-   [MCP服务器统一部署工具](#mcp服务器统一部署工具)
+    - [特性](#特性)
+    - [前提条件](#前提条件)
+    - [安装](#安装)
+    - [配置](#配置)
+        - [服务器类型](#服务器类型)
+        - [环境变量](#环境变量-1)
+    - [使用方法](#使用方法)
+        - [基本命令](#基本命令)
+        - [示例](#示例)
+    - [客户端配置](#客户端配置)
+    - [目录结构](#目录结构)
+    - [Docker支持](#docker支持)
+    - [贡献](#贡献)
+    - [许可证](#许可证)
+
+### Features
+
+- **Unified Management**: Manage multiple MCP servers from a single interface
+- **SSE Standardization**: Convert various MCP server implementations to SSE protocol
+- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Flexible Configuration**: Easy configuration for different server types and environments
+
+
+# MCP Server Unified Deployment
 
 ## Features
 
@@ -11,6 +62,8 @@ A unified deployment and management tool for MCP (Model Context Protocol) server
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 - **Flexible Configuration**: Easy configuration for different server types and environments
 - **Process Management**: Start, stop, restart, and check status of MCP servers
+- **Docker Support**: Comprehensive Docker deployment and management options
+- **GitHub Workflow Integration**: CI/CD pipeline for automated testing and deployment
 
 ## Prerequisites
 
@@ -18,8 +71,10 @@ A unified deployment and management tool for MCP (Model Context Protocol) server
 - Git (for source code type servers)
 - Node.js and npm (for Node.js based servers)
 - uv (for dependency management)
-- pipx (for installing mcp-proxy)
+- pipx (for installing `mcp-proxy`, it is recommended that `mcp-proxy` be installed through `pipx`).
 - uvx (for uvx based servers)
+
+- Docker and Docker Compose (optional, for containerized deployment)
 
 ## Installation
 
@@ -94,7 +149,10 @@ The configuration file (`config/mcp_servers.json`) contains settings for all MCP
   ],
   "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",  // Command template for SSE mode
   "start_command": "uvx mcp-server-fetch",  // Original start command
-  "env": {}                     // Environment variables for the server
+  "env": {},                    // Environment variables for the server
+  "working_directory": "",      // Optional working directory for running commands
+  "repo_url": "",               // For source_code type, git repository URL
+  "branch": "main"              // For source_code type, git branch to use
 }
 ```
 
@@ -103,6 +161,18 @@ The configuration file (`config/mcp_servers.json`) contains settings for all MCP
 - **uvx**: Servers deployed using uvx
 - **node**: Node.js based servers
 - **source_code**: Servers that need to be built from source code
+- **docker**: Servers that run in Docker containers
+
+### Environment Variables
+
+You can specify environment variables for each server in the `env` section:
+
+```json
+"env": {
+  "NODE_ENV": "production",
+  "DEBUG": "true"
+}
+```
 
 ## Usage
 
@@ -136,87 +206,143 @@ To start the fetch server:
 python scripts/manage_mcp.py start fetch
 ```
 
+## Integrate Configuration Generator Script
+
+The `integrate_config_generator.py` script is used to generate client-specific configuration files based on the `mcp_servers.json` file. It reads the `mcp_servers.json` file and generates client-specific configuration files in the `config/client_configs/` directory.
+
+### Usage
+
+```bash
+python scripts/integrate_config_generator.py
+```
+
+This script will create configuration files for each client found in the `mcp_servers.json` file and place them in the `config/client_configs/` directory. The generated configuration files are named `mcp_<client>_*.json`, where `<client>` is the name of the client. You can then use these configuration files to configure your client.
+
+
 ## Directory Structure
 
 ```
 .
-├── config/                  # Configuration files
-│   └── mcp_servers.json     # Server configuration
-├── logs/                    # Server logs
-├── pids/                    # Process ID files
-|—— docker-dev/              # docker development environment
-│   ├── docker-compose.yml   # docker-compose.yml
-│   └── .devcontainer        # .devcontainer directory
-│       └─ devcontainer.json # devcontainer.json
-├── dockerfile/              # dockerfile
-├── scripts/                 # Management scripts
-│   ├── manage_mcp.py        # Main management script
-│   └── mcp_manager/         # Management modules
-└── mcp-servers/             # Source code servers (if any)
+├── config
+│   ├── host_info.json            # Host info cache (auto-generated, used for network/config assist)
+│   ├── mcp_servers.example.json  # Example MCP server configuration
+│   ├── mcp_servers.json          # Main MCP server configuration
+│   └── client_configs/           # Client configuration files generated by integrate_config_generator.py
+|          └── mcp_<client>_*.json # Client configuration files
+├── docker
+│   ├── docker-compose.yml        # Production Docker Compose configuration
+│   ├── Dockerfile                # Production Docker image build file
+│   ├── entrypoint.sh             # Container entrypoint script
+│   └── README.md                 # Docker-related documentation
+├── docker-dev
+│   ├── docker-compose.yml        # Development Docker Compose configuration
+│   ├── Dockerfile                # Development Docker image build file
+│   └── .devcontainer             # Devcontainer directory
+│       └─ devcontainer.json      # VS Code devcontainer configuration
+├── docs/                         # Project documentation
+├── logs/                         # Server runtime logs
+├── mcp-data/                     # Runtime data storage (if needed)
+├── mcp-servers/                  # MCP server source code (if any)
+├── node-modules/                 # Node.js dependencies (if needed)
+├── npm-global                    # Global npm dependencies and cache
+│   ├── bin
+│   ├── _cacache
+│   ├── lib
+│   ├── _logs
+│   ├── _npx
+├── pids/                         # Process ID files
+├── scripts
+│   ├── mcp_manager               # Management modules (commands, config, process utils, etc.)
+│   │   ├── commands.py           # Command modules
+│   │   ├── config.py             # Configuration modules
+│   │   └── process_utils.py      # Process utilities
+│   ├── container_startup.py      # Container startup helper script
+│   ├── detect_host_ip.py         # Host IP detection script
+│   ├── integrate_config_generator.py # Client config generator script
+│   ├── manage_mcp.py             # Main MCP management script
+│   └── setup_env.py              # Environment setup script
+├── uv-cache/                     # Python dependency cache (auto-generated by uv)
+├── README.md                     # Project documentation
+└── requirements.txt              # Python dependency list
 ```
 
-## Docker Development Environment
+**Notes:**
+- `config/client_configs/`: Stores client-specific configuration files generated by `integrate_config_generator.py`.
+- `config/host_info.json`: Auto-generated host info cache, used for network configuration and automation.
+- `docker/` and `docker-dev/`: Production and development Docker configurations for easy environment switching.
+- `mcp-servers/`: Place your custom or extended MCP server source code here if needed.
+- `scripts/`: All management, automation, and configuration scripts. The main entry point is `manage_mcp.py`.
+- Other directories like `logs/`, `pids/`, `mcp-data/`, `uv-cache/` are for runtime or cache data and do not require manual maintenance.
 
-### Overview
 
-This project supports Docker-based development environments, making it easy to set up and run MCP servers in a consistent environment across different platforms.
+## Docker Support
 
-### Prerequisites
+This project provides comprehensive Docker support for both development and deployment environments.
 
-- Docker and Docker Compose installed on your system
-- VS Code with Remote - Containers extension (optional, for DevContainer support)
+### Docker Deployment Options
 
-### Getting Started with Docker
+1. **Development Environment**:
+   - A development container with all necessary tools pre-installed
+   - Visual Studio Code integration via devcontainer configuration
 
-1. Navigate to the project directory:
+2. **Production Deployment**:
+   - Multi-container setup with Docker Compose
+   - Individual server containers with proper isolation
+   - Persistent volume management for data and configurations
+
+### Using Docker for Development
+
+To start the development environment:
 
 ```bash
-cd MCP-Server-Unified-Deployment
-```
-
-2. Start the Docker development environment:
-
-```bash
-# Important: Must be executed from the parent directory of `docker-dev` (`MCP-Server-Unified-Deployment`), otherwise errors will occur
+# Start the development container
 docker compose -f docker-dev/docker-compose.yml up -d
+
+# Connect to the container
+docker exec -it mcp-dev zsh
+```
+### Production Deployment with pre-built images
+
+To deploy in a production environment, you can use pre-built images from Docker Hub.
+```bash
+docker pull biguncle2018/mcp-server-unified:latest
+
+# Start the production container
+docker run -d --name mcp-server-unified biguncle2018/mcp-server-unified:latest
+
+# View logs
+docker logs -f mcp-server-unified
+
+# Connect to the container
+docker exec -it mcp-server-unified zsh
 ```
 
-3. Connect to the running container:
+### Production Deployment with Docker Compose
+
+To deploy in a production environment:
+#### Configuration
+Copy the example configuration file:
 
 ```bash
-docker exec -it docker-dev-mcpdev-1 zsh
+cp config/mcp_servers.example.json config/mcp_servers.json
+```
+Or edit the configuration file as needed.
+
+#### Modify Dockerfile
+If necessary, modify the Dockerfile or `docker-compose.yml` in the `docker/` directory to suit your needs.
+For example, you may need to adjust the `ENTRYPOINT` or `REAL_HOST_IP` variables or `TIME ZONE` variables.
+
+#### Build and Start Containers
+
+```bash
+# Build and start all containers
+docker compose -f docker/docker-compose.yml up -d
+
+# View logs
+docker compose -f docker/docker-compose.yml logs -f
+
 ```
 
-### Key Concepts for Docker Configuration
-
-#### Build Context and Path References
-
-When working with Docker in this project, it's important to understand several key concepts:
-
-1. **Docker Build Context**: The build context determines which files can be accessed by the `COPY` instruction in the Dockerfile.
-
-   - In our configuration, the build context is set to the project root directory (`context: ..` in docker-compose.yml).
-   - This allows the Dockerfile to access files like `requirements.txt` directly.
-
-2. **Dockerfile Path References**: All paths in the Dockerfile are relative to the build context.
-
-   - Example: `COPY requirements.txt requirements.txt` copies from the project root.
-
-3. **Docker Compose Volume Mounts**: Paths in volume mounts are relative to the docker-compose.yml file location.
-
-   - Our configuration uses `- ../:/workspace:cached` to mount the entire project into the container.
-
-4. **DevContainer Configuration**: For VS Code users, the DevContainer configuration references paths relative to the devcontainer.json file.
-   - The configuration uses `"dockerComposeFile": "../docker-compose.yml"` to reference the compose file.
-
-### Troubleshooting Docker Path Issues
-
-If you encounter path-related issues when working with Docker:
-
-1. Verify the build context in docker-compose.yml is correctly set
-2. Ensure file paths in the Dockerfile are relative to the build context
-3. Check that volume mounts in docker-compose.yml use correct relative paths
-4. For DevContainer users, confirm that path references in devcontainer.json are correct
 
 ## Contributing
 
@@ -241,6 +367,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **跨平台**：支持Windows、macOS和Linux
 - **灵活配置**：轻松配置不同类型和环境的服务器
 - **进程管理**：启动、停止、重启和检查MCP服务器状态
+- **Docker支持**：全面的Docker部署和管理选项
+- **GitHub工作流集成**：自动化测试和部署的CI/CD管道
 
 ## 前提条件
 
@@ -250,6 +378,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - uv（用于依赖管理）
 - pipx（用于安装mcp-proxy）
 - uvx（用于基于uvx的服务器）
+- Docker和Docker Compose（可选，用于容器化部署）
 
 ## 安装
 
@@ -267,7 +396,7 @@ cd MCP-Server-Unified-Deployment
 pip install uv
 
 # 创建虚拟环境
-uv venv
+uv venv --python=3.12
 
 # 使用uv安装依赖
 uv pip install -r requirements.txt
@@ -320,7 +449,10 @@ cp config/mcp_servers.example.json config/mcp_servers.json
   ],
   "sse_start_command": "mcp-proxy {start_command} --sse-host={sse_host} --sse-port={sse_port} --allow-origin='{allow_origin}' ",  // SSE模式的命令模板
   "start_command": "uvx mcp-server-fetch",  // 原始启动命令
-  "env": {}                     // 服务器的环境变量
+  "env": {},                    // 服务器的环境变量
+  "working_directory": "",      // 运行命令的可选工作目录
+  "repo_url": "",               // 对于source_code类型，git仓库URL
+  "branch": "main"              // 对于source_code类型，使用的git分支
 }
 ```
 
@@ -329,6 +461,18 @@ cp config/mcp_servers.example.json config/mcp_servers.json
 - **uvx**：使用uvx部署的服务器
 - **node**：基于Node.js的服务器
 - **source_code**：需要从源代码构建的服务器
+- **docker**：在Docker容器中运行的服务器
+
+### 环境变量
+
+您可以在`env`部分为每个服务器指定环境变量：
+
+```json
+"env": {
+  "NODE_ENV": "production",
+  "DEBUG": "true"
+}
+```
 
 ## 使用方法
 
@@ -366,83 +510,102 @@ python scripts/manage_mcp.py start fetch
 
 ```
 .
-├── config/                  # 配置文件
-│   └── mcp_servers.json     # 服务器配置
-├── logs/                    # 服务器日志
-├── pids/                    # 进程ID文件
-|—— docker-dev/              # docker开发环境
-│   ├── docker-compose.yml   # docker-compose.yml
-│   └── .devcontainer        # .devcontainer 目录
-│       └─ devcontainer.json # devcontainer.json
-├── dockerfile/              # dockerfile
-├── scripts/                 # 管理脚本
-│   ├── manage_mcp.py        # 主管理脚本
-│   └── mcp_manager/         # 管理模块
-└── mcp-servers/             # 源代码服务器（如果有）
+├── config/                       # 配置文件
+│   ├── host_info.json            # 主机信息缓存文件（自动生成/用于辅助配置）
+│   ├── mcp_servers.example.json  # MCP服务器配置示例
+│   ├── mcp_servers.json          # MCP服务器主配置文件
+|   └── client_configs/      # 由integrate_config_generator.py生成的客户端配置
+|        └── mcp_<client>_*.json # 客户端配置文件
+├── docker
+│   ├── docker-compose.yml        # 生产环境 Docker Compose 配置
+│   ├── Dockerfile                # 生产环境 Docker 镜像构建文件
+│   ├── entrypoint.sh             # 容器入口脚本
+│   └── README.md                 # Docker 相关说明文档
+├── docker-dev
+│   ├── docker-compose.yml        # 开发环境 Docker Compose 配置
+│   ├── Dockerfile                # 开发环境 Docker 镜像构建文件
+│   └── .devcontainer             # 容器目录
+│       └─ devcontainer.json      # devcontainer.json
+├── docs/                         # 项目文档目录
+├── logs/                         # 服务器运行日志目录
+├── mcp-data/                     # 运行时数据存储目录（如有需要）
+├── mcp-servers/                  # MCP服务器源代码目录（如有需要）
+├── node-modules/                 # Node.js 依赖目录（如有需要）
+├── npm-global                    # 全局 npm 依赖及缓存目录
+│   ├── bin
+│   ├── _cacache
+│   ├── lib
+│   ├── _logs
+│   ├── _npx
+├── pids/                         # 进程ID文件目录
+├── scripts
+│   ├── mcp_manager/              # 管理模块（如命令、配置、进程工具等）
+│   │   ├── commands.py           # 
+│   │   ├── config.py             # 配置管理
+│   │   └── process_utils.py      # 进程工具
+│   ├── container_startup.py      # 容器启动辅助脚本
+│   ├── detect_host_ip.py         # 主机IP检测脚本
+│   ├── integrate_config_generator.py # 客户端配置生成脚本
+│   ├── manage_mcp.py             # MCP统一管理主脚本
+│   └── setup_env.py              # 环境初始化脚本
+├── uv-cache/                     # Python依赖缓存目录（uv工具自动生成）
+├── README.md                     # 项目说明文档
+└── requirements.txt              # Python依赖清单
 ```
 
-## Docker开发环境
+## Docker支持
 
-### 概述
+本项目为开发和部署环境提供全面的Docker支持。
 
-本项目支持基于Docker的开发环境，使在不同平台上设置和运行MCP服务器变得简单且一致。
+### Docker部署选项
 
-### 前提条件
+1. **开发环境**：
+   - 预装所有必要工具的开发容器
+   - 通过devcontainer配置集成Visual Studio Code
 
-- 系统上已安装Docker和Docker Compose
-- VS Code及Remote - Containers扩展（可选，用于DevContainer支持）
+2. **生产部署**：
+   - 使用Docker Compose的多容器设置
+   - 具有适当隔离的单独服务器容器
+   - 用于数据和配置的持久卷管理
 
-### Docker环境入门
+### 使用Docker进行开发
 
-1. 导航到项目目录：
-
-```bash
-cd MCP-Server-Unified-Deployment
-```
-
-2. 启动Docker开发环境：
+启动开发环境：
 
 ```bash
-# 一定要在`docker-dev`父目录（`MCP-Server-Unified-Deployment`)目录下执行，否则会报错
+# 启动开发容器
 docker compose -f docker-dev/docker-compose.yml up -d
-```
 
-3. 连接到运行中的容器：
+# 连接到容器
+docker exec -it mcp-dev zsh
+```
+### 拉取项目镜像生产部署
+
+见 [镜像部署推荐流程](docs/镜像部署推荐流程.md)
+
+### 使用Docker compose 进行生产部署
+
+在生产环境中部署：
+
+#### 配置
 
 ```bash
-docker exec -it  docker-dev-mcpdev-1 zsh
+cp config/mcp_servers.example.json config/mcp_servers.json
 ```
+或者根据需求编辑配置文件。
 
-### Docker配置关键概念
+#### 修改Dockerfile
+有需要时，修改`docker/`目录中的`Dockerfile`或`docker-compose.yml`以适应您的需求。
+比如，您可能需要调整`ENTRYPOINT`或`REAL_HOST_IP`变量或`TIME ZONE`变量。
 
-#### 构建上下文和路径引用
+#### 构建和启动容器
+```bash
+# 构建并启动所有容器
+docker compose -f docker/docker-compose.yml up -d
 
-在本项目中使用Docker时，理解以下几个关键概念非常重要：
-
-1. **Docker构建上下文**：构建上下文决定了Dockerfile中的`COPY`指令可以访问哪些文件。
-
-   - 在我们的配置中，构建上下文设置为项目根目录（docker-compose.yml中的`context: ..`）。
-   - 这允许Dockerfile直接访问`requirements.txt`等文件。
-
-2. **Dockerfile路径引用**：Dockerfile中的所有路径都是相对于构建上下文的。
-
-   - 示例：`COPY requirements.txt requirements.txt`从项目根目录复制文件。
-
-3. **Docker Compose卷挂载**：卷挂载中的路径是相对于docker-compose.yml文件位置的。
-
-   - 我们的配置使用`- ../:/workspace:cached`将整个项目挂载到容器中。
-
-4. **DevContainer配置**：对于VS Code用户，DevContainer配置中的路径引用是相对于devcontainer.json文件的。
-   - 配置使用`"dockerComposeFile": "../docker-compose.yml"`来引用compose文件。
-
-### Docker路径问题排查
-
-如果在使用Docker时遇到路径相关问题：
-
-1. 验证docker-compose.yml中的构建上下文设置是否正确
-2. 确保Dockerfile中的文件路径是相对于构建上下文的
-3. 检查docker-compose.yml中的卷挂载是否使用了正确的相对路径
-4. 对于DevContainer用户，确认devcontainer.json中的路径引用是否正确
+# 查看日志
+docker compose -f docker/docker-compose.yml logs -f
+```
 
 ## 贡献
 

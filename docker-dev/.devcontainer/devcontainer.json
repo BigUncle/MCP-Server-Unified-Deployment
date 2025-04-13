@@ -28,7 +28,9 @@
         "alibaba-cloud.tongyi-lingma",
         "saoudrizwan.claude-dev",
         "aminer.codegeex",
-        "ms-windows-ai-studio.windows-ai-studio"
+        "ms-windows-ai-studio.windows-ai-studio",
+        "google.geminicodeassist",
+        "googlecloudtools.cloudcode"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
