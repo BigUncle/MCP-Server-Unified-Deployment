@@ -3,7 +3,7 @@
 
 # ---- Base Stage ----
 # Use a specific Python version for reproducibility
-FROM python:3.12-slim AS base
+FROM python:3.13.3-slim AS base
 
 # Set environment variables for locale, timezone, Python, and tool paths for non-root user
 ENV LANG=zh_CN.UTF-8 \
