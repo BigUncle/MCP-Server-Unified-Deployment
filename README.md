@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/biguncle-mcp-server-unified-deployment-badge.png)](https://mseep.ai/app/biguncle-mcp-server-unified-deployment)
+
 ## MCP Server Unified Deployment
 
 [English](#mcp-server-unified-deployment) | [中文](#mcp服务器统一部署工具)
